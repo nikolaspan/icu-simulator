@@ -136,6 +136,43 @@
       rgba(50, 166, 110, 0.12);
 }
 
+.status-complete {
+  background: #338f65;
+
+  box-shadow:
+    0 0 0 4px
+      rgba(51, 143, 101, 0.13);
+}
+
+.reset-button {
+  min-height: 38px;
+
+  padding: 0 13px;
+
+  border: 1px solid #d2dfe2;
+  border-radius: 10px;
+
+  background: white;
+  color: #50656c;
+
+  cursor: pointer;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+
+.reset-button:hover {
+  background: #f1f6f7;
+  border-color: #afcbd0;
+
+  transform: translateY(-1px);
+}
+
 .help-button {
   width: 38px;
   height: 38px;
@@ -197,11 +234,6 @@
 
   outline: none;
 }
-
-/*
- * UI overlay should not block Three.js
- * interactions by default.
- */
 
 .interface-layer {
   position: absolute;
@@ -438,7 +470,7 @@
   border-radius: 14px;
 
   background:
-    rgba(249, 252, 252, 0.9);
+    rgba(249, 252, 252, 0.92);
 
   box-shadow:
     0 10px 28px
@@ -462,6 +494,31 @@
 
   font-size: 11px;
   line-height: 1.5;
+}
+
+.timeout-badge {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 4px;
+
+  margin-top: 10px;
+  padding: 6px 9px;
+
+  border: 1px solid #ead5a5;
+  border-radius: 8px;
+
+  background: #fff9eb;
+  color: #92722d;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.timeout-badge strong {
+  color: #815f15;
+
+  font-size: 10px;
 }
 
 /*
@@ -602,6 +659,20 @@
   color: #b94249;
 }
 
+.unavailable-note {
+  margin-bottom: 0;
+
+  border-color: #e2e7e8;
+
+  background: #f8fafa;
+}
+
+/*
+ * ==========================================
+ * BUTTONS / DECISIONS
+ * ==========================================
+ */
+
 .primary-action {
   width: 100%;
 
@@ -610,6 +681,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  gap: 10px;
 
   padding: 0 14px;
 
@@ -623,6 +696,8 @@
   font-size: 12px;
   font-weight: 690;
 
+  text-align: left;
+
   transition:
     background 150ms ease,
     transform 150ms ease;
@@ -632,6 +707,82 @@
   background: #115f6e;
 
   transform: translateY(-1px);
+}
+
+.decision-actions {
+  display: flex;
+  flex-direction: column;
+
+  gap: 9px;
+}
+
+.decision-actions .primary-action {
+  text-align: left;
+}
+
+/*
+ * ==========================================
+ * MESSAGE NODE BAR
+ * ==========================================
+ */
+
+.node-action-bar {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+
+  width: min(
+    620px,
+    calc(100% - 500px)
+  );
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 18px;
+
+  padding: 14px 16px;
+
+  border: 1px solid
+    rgba(167, 192, 198, 0.5);
+
+  border-radius: 14px;
+
+  background:
+    rgba(250, 253, 253, 0.96);
+
+  box-shadow:
+    0 14px 38px
+      rgba(37, 59, 67, 0.15);
+
+  backdrop-filter: blur(14px);
+
+  transform: translateX(-50%);
+
+  pointer-events: auto;
+}
+
+.node-action-bar > div {
+  min-width: 0;
+}
+
+.node-action-bar strong {
+  display: block;
+
+  color: #25383f;
+
+  font-size: 11px;
+  font-weight: 650;
+
+  line-height: 1.5;
+}
+
+.node-continue-button {
+  width: auto;
+  min-width: 120px;
+
+  flex-shrink: 0;
 }
 
 /*
@@ -879,6 +1030,89 @@
 
 /*
  * ==========================================
+ * SCENARIO COMPLETE / DEBRIEF
+ * ==========================================
+ */
+
+.scenario-complete-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  width: min(
+    380px,
+    calc(100% - 40px)
+  );
+
+  padding: 24px;
+
+  border: 1px solid #cadcde;
+  border-radius: 18px;
+
+  background:
+    rgba(250, 253, 253, 0.97);
+
+  box-shadow:
+    0 24px 64px
+      rgba(21, 43, 51, 0.2);
+
+  backdrop-filter: blur(16px);
+
+  transform:
+    translate(-50%, -50%);
+
+  pointer-events: auto;
+
+  animation:
+    modal-enter 180ms ease-out;
+}
+
+.scenario-complete-panel h2 {
+  margin: 0;
+
+  color: #203239;
+
+  font-size: 21px;
+}
+
+.scenario-complete-panel p {
+  margin: 9px 0 18px;
+
+  color: #6f8187;
+
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.completion-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 17px;
+  padding: 13px;
+
+  border: 1px solid #dce7e9;
+  border-radius: 11px;
+
+  background: #f5fafb;
+}
+
+.completion-score span {
+  color: #6f8086;
+
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.completion-score strong {
+  color: #176f80;
+
+  font-size: 24px;
+}
+
+/*
+ * ==========================================
  * HELP MODAL
  * ==========================================
  */
@@ -983,13 +1217,85 @@
 
 /*
  * ==========================================
- * RESPONSIVE
+ * LOADING / ERROR SCREEN
  * ==========================================
  */
 
-@media (
-  max-width: 1050px
-) {
+.loading-screen {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  padding: 24px;
+
+  text-align: center;
+
+  background:
+    linear-gradient(
+      180deg,
+      #e8f0f2,
+      #dce7ea
+    );
+}
+
+.loading-screen h1 {
+  margin: 0;
+
+  color: #21343b;
+
+  font-size: 24px;
+}
+
+.loading-screen p {
+  max-width: 480px;
+
+  margin: 0 0 8px;
+
+  color: #697c83;
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.loading-screen .primary-action {
+  width: auto;
+  min-width: 130px;
+}
+
+.loading-indicator {
+  width: 32px;
+  height: 32px;
+
+  border: 3px solid
+    rgba(23, 111, 128, 0.16);
+
+  border-top-color: #176f80;
+  border-radius: 50%;
+
+  animation:
+    loading-spin
+    700ms linear
+    infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/*
+ * ==========================================
+ * RESPONSIVE — TABLET
+ * ==========================================
+ */
+
+@media (max-width: 1050px) {
   .objective-panel {
     display: none;
   }
@@ -997,11 +1303,19 @@
   .interaction-panel {
     width: 300px;
   }
+
+  .node-action-bar {
+    width: calc(100% - 360px);
+  }
 }
 
-@media (
-  max-width: 720px
-) {
+/*
+ * ==========================================
+ * RESPONSIVE — MOBILE
+ * ==========================================
+ */
+
+@media (max-width: 720px) {
   .topbar {
     height: 64px;
     min-height: 64px;
@@ -1018,6 +1332,10 @@
   }
 
   .status-item:first-child {
+    display: none;
+  }
+
+  .reset-button {
     display: none;
   }
 
@@ -1051,5 +1369,26 @@
 
   .hover-label {
     bottom: 68px;
+  }
+
+  .node-action-bar {
+    right: 10px;
+    bottom: 74px;
+    left: 10px;
+
+    width: auto;
+
+    flex-direction: column;
+    align-items: stretch;
+
+    transform: none;
+  }
+
+  .node-continue-button {
+    width: 100%;
+  }
+
+  .scenario-complete-panel {
+    width: calc(100% - 20px);
   }
 }

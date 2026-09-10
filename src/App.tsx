@@ -1,20 +1,50 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from 'react'
 
-import ICUScene, {
-  type HotspotId,
-} from './components/ICUScene'
+import ICUScene from './components/ICUScene'
+
+import {
+  advanceMessage,
+  applyTimeout,
+  createInitialState,
+  getActiveGlobalEffects,
+  getNode,
+  incrementTime,
+  selectDecision,
+} from './engine/scenarioEngine'
+
+import {
+  loadDefaultScenario,
+} from './engine/scenarioLoader'
+
+import type {
+  HotspotId,
+  Scenario,
+  SimulatorState,
+} from './engine/types'
 
 import './App.css'
+
+/*
+ * ============================================================
+ * HOTSPOT UI INFORMATION
+ * ============================================================
+ *
+ * This describes how each physical object is presented to
+ * the user.
+ *
+ * Scenario progression itself comes from the JSON.
+ */
 
 interface HotspotInfo {
   title: string
   eyebrow: string
   description: string
-  actionLabel: string
 }
 
 const hotspotInfo: Record<
@@ -26,7 +56,6 @@ const hotspotInfo: Record<
     eyebrow: 'Patient / Bed',
     description:
       'Inspect the patient and review visible clinical observations.',
-    actionLabel: 'Assess patient',
   },
 
   hs_monitor: {
@@ -34,15 +63,13 @@ const hotspotInfo: Record<
     eyebrow: 'Monitor',
     description:
       'Review current vital signs and recent changes in the patient condition.',
-    actionLabel: 'Review monitor',
   },
 
   hs_ventilator: {
     title: 'Ventilator',
-    eyebrow: 'Respiratory support',
+    eyebrow: 'Respiratory Support',
     description:
-      'Review the current respiratory settings before making an intervention.',
-    actionLabel: 'View controls',
+      'Review the current respiratory settings and available interventions.',
   },
 
   hs_ehr: {
@@ -50,17 +77,21 @@ const hotspotInfo: Record<
     eyebrow: 'EHR Terminal',
     description:
       'Review patient information and document assessments and interventions.',
-    actionLabel: 'Open record',
   },
 
   hs_call: {
     title: 'Clinical Escalation',
     eyebrow: 'Call Button',
     description:
-      'Use the call system when escalation to another healthcare professional is required.',
-    actionLabel: 'Review call option',
+      'Contact the on-duty physician when clinical escalation is required.',
   },
 }
+
+/*
+ * ============================================================
+ * TIME FORMAT
+ * ============================================================
+ */
 
 function formatTime(
   totalSeconds: number,
@@ -72,52 +103,367 @@ function formatTime(
   const seconds =
     totalSeconds % 60
 
-  return `${String(minutes).padStart(
+  return `${String(
+    minutes,
+  ).padStart(
     2,
     '0',
-  )}:${String(seconds).padStart(
+  )}:${String(
+    seconds,
+  ).padStart(
     2,
     '0',
   )}`
 }
 
+/*
+ * ============================================================
+ * APP
+ * ============================================================
+ */
+
 function App() {
+  /*
+   * ----------------------------------------------------------
+   * Scenario
+   * ----------------------------------------------------------
+   */
+
+  const [
+    scenario,
+    setScenario,
+  ] = useState<Scenario | null>(
+    null,
+  )
+
+  const [
+    simulatorState,
+    setSimulatorState,
+  ] = useState<
+    SimulatorState | null
+  >(null)
+
+  /*
+   * A ref lets timeout callbacks access the most recent state
+   * without depending on an old render.
+   */
+
+  const simulatorStateRef =
+    useRef<
+      SimulatorState | null
+    >(null)
+
+  /*
+   * ----------------------------------------------------------
+   * Interface state
+   * ----------------------------------------------------------
+   */
+
   const [
     selectedHotspot,
     setSelectedHotspot,
-  ] = useState<HotspotId | null>(
-    null,
-  )
+  ] = useState<
+    HotspotId | null
+  >(null)
 
   const [
     hoveredHotspot,
     setHoveredHotspot,
-  ] = useState<HotspotId | null>(
-    null,
-  )
+  ] = useState<
+    HotspotId | null
+  >(null)
 
-  const [elapsed, setElapsed] =
-    useState(0)
+  const [
+    toast,
+    setToast,
+  ] = useState<
+    string | null
+  >(null)
 
-  const [toast, setToast] =
-    useState<string | null>(
-      null,
-    )
+  const [
+    helpOpen,
+    setHelpOpen,
+  ] = useState(false)
 
-  const [helpOpen, setHelpOpen] =
-    useState(false)
+  const [
+    loadError,
+    setLoadError,
+  ] = useState<
+    string | null
+  >(null)
+
+  const [
+    timeoutRemaining,
+    setTimeoutRemaining,
+  ] = useState<
+    number | null
+  >(null)
+
+  /*
+   * ============================================================
+   * LOAD SCENARIO
+   * ============================================================
+   */
+
+  const initializeScenario =
+    useCallback(async () => {
+      setLoadError(null)
+
+      try {
+        const loadedScenario =
+          await loadDefaultScenario()
+
+        const initialState =
+          createInitialState(
+            loadedScenario,
+          )
+
+        setScenario(
+          loadedScenario,
+        )
+
+        setSimulatorState(
+          initialState,
+        )
+
+        simulatorStateRef.current =
+          initialState
+
+        setSelectedHotspot(
+          null,
+        )
+
+        setHoveredHotspot(
+          null,
+        )
+
+        setToast(null)
+
+        setTimeoutRemaining(
+          null,
+        )
+      } catch (error) {
+        console.error(error)
+
+        if (
+          error instanceof Error
+        ) {
+          setLoadError(
+            error.message,
+          )
+        } else {
+          setLoadError(
+            'The scenario could not be loaded.',
+          )
+        }
+      }
+    }, [])
 
   useEffect(() => {
+    void initializeScenario()
+  }, [initializeScenario])
+
+  /*
+   * Keep the ref synchronized with React state.
+   */
+
+  useEffect(() => {
+    simulatorStateRef.current =
+      simulatorState
+  }, [simulatorState])
+
+  /*
+   * ============================================================
+   * CURRENT NODE
+   * ============================================================
+   */
+
+  const currentNodeId =
+    simulatorState
+      ?.current_node_id ??
+    null
+
+  const currentNode =
+    useMemo(() => {
+      if (
+        !scenario ||
+        !currentNodeId
+      ) {
+        return null
+      }
+
+      return getNode(
+        scenario,
+        currentNodeId,
+      )
+    }, [
+      scenario,
+      currentNodeId,
+    ])
+
+  /*
+   * ============================================================
+   * SCENARIO CLOCK
+   * ============================================================
+   */
+
+  const scenarioCompleted =
+    simulatorState
+      ?.completed ??
+    true
+
+  useEffect(() => {
+    if (
+      scenarioCompleted
+    ) {
+      return
+    }
+
     const timer =
-      window.setInterval(() => {
-        setElapsed(
-          (value) => value + 1,
-        )
-      }, 1000)
+      window.setInterval(
+        () => {
+          setSimulatorState(
+            (current) => {
+              if (!current) {
+                return current
+              }
+
+              return incrementTime(
+                current,
+                1,
+              )
+            },
+          )
+        },
+        1000,
+      )
 
     return () =>
-      window.clearInterval(timer)
-  }, [])
+      window.clearInterval(
+        timer,
+      )
+  }, [scenarioCompleted])
+
+  /*
+   * ============================================================
+   * DECISION TIMEOUT
+   * ============================================================
+   */
+
+  const timeoutSeconds =
+    currentNode?.type ===
+      'decision'
+      ? currentNode.timeout
+          ?.seconds
+      : undefined
+
+  useEffect(() => {
+    if (
+      !scenario ||
+      !currentNodeId ||
+      timeoutSeconds ===
+        undefined
+    ) {
+      setTimeoutRemaining(
+        null,
+      )
+
+      return
+    }
+
+    const nodeId =
+      currentNodeId
+
+    setTimeoutRemaining(
+      timeoutSeconds,
+    )
+
+    const timer =
+      window.setInterval(
+        () => {
+          setTimeoutRemaining(
+            (remaining) => {
+              if (
+                remaining ===
+                null
+              ) {
+                return null
+              }
+
+              if (
+                remaining > 1
+              ) {
+                return (
+                  remaining - 1
+                )
+              }
+
+              /*
+               * Timeout reached.
+               */
+
+              window.clearInterval(
+                timer,
+              )
+
+              const currentState =
+                simulatorStateRef.current
+
+              if (
+                !currentState ||
+                currentState.current_node_id !==
+                  nodeId
+              ) {
+                return null
+              }
+
+              const result =
+                applyTimeout(
+                  scenario,
+                  currentState,
+                )
+
+              simulatorStateRef.current =
+                result.state
+
+              setSimulatorState(
+                result.state,
+              )
+
+              setSelectedHotspot(
+                null,
+              )
+
+              if (
+                result.toast
+              ) {
+                setToast(
+                  result.toast,
+                )
+              }
+
+              return null
+            },
+          )
+        },
+        1000,
+      )
+
+    return () =>
+      window.clearInterval(
+        timer,
+      )
+  }, [
+    scenario,
+    currentNodeId,
+    timeoutSeconds,
+  ])
+
+  /*
+   * ============================================================
+   * TOAST AUTO DISMISS
+   * ============================================================
+   */
 
   useEffect(() => {
     if (!toast) {
@@ -125,30 +471,45 @@ function App() {
     }
 
     const timer =
-      window.setTimeout(() => {
-        setToast(null)
-      }, 3200)
+      window.setTimeout(
+        () => {
+          setToast(null)
+        },
+        3500,
+      )
 
     return () =>
-      window.clearTimeout(timer)
+      window.clearTimeout(
+        timer,
+      )
   }, [toast])
+
+  /*
+   * ============================================================
+   * ESCAPE KEY
+   * ============================================================
+   */
 
   useEffect(() => {
     function handleKeyDown(
       event: KeyboardEvent,
     ) {
       if (
-        event.key !== 'Escape'
+        event.key !==
+        'Escape'
       ) {
         return
       }
 
       if (helpOpen) {
         setHelpOpen(false)
+
         return
       }
 
-      setSelectedHotspot(null)
+      setSelectedHotspot(
+        null,
+      )
     }
 
     window.addEventListener(
@@ -163,9 +524,52 @@ function App() {
       )
   }, [helpOpen])
 
+  /*
+   * ============================================================
+   * GLOBAL RULES
+   * ============================================================
+   */
+
+  const activeGlobalEffects =
+    scenario &&
+    simulatorState
+      ? getActiveGlobalEffects(
+          scenario,
+          simulatorState,
+        )
+      : []
+
+  /*
+   * The scenario JSON contains:
+   *
+   * vitals.spo2 < 90
+   *       ↓
+   * monitor -> blinking_red
+   */
+
+  const monitorAlarm =
+    activeGlobalEffects.some(
+      (effect) =>
+        effect.type ===
+          'ui_visual' &&
+        effect.target ===
+          'hs_monitor' &&
+        effect.state ===
+          'blinking_red',
+    )
+
+  /*
+   * ============================================================
+   * HOTSPOT INTERACTION
+   * ============================================================
+   */
+
   const handleHotspotClick =
     useCallback(
-      (hotspot: HotspotId) => {
+      (
+        hotspot:
+          HotspotId,
+      ) => {
         setSelectedHotspot(
           hotspot,
         )
@@ -187,43 +591,124 @@ function App() {
       [],
     )
 
-  function handleContextAction() {
-    if (!selectedHotspot) {
+  /*
+   * ============================================================
+   * MESSAGE NODE
+   * ============================================================
+   */
+
+  function handleAdvanceMessage() {
+    if (
+      !scenario ||
+      !simulatorState ||
+      currentNode?.type !==
+        'message'
+    ) {
       return
     }
 
-    switch (selectedHotspot) {
-      case 'hs_patient':
-        setToast(
-          'Patient assessment selected.',
-        )
-        break
+    const result =
+      advanceMessage(
+        scenario,
+        simulatorState,
+      )
 
-      case 'hs_monitor':
-        setToast(
-          'Monitor review selected. SpO₂ is currently below the configured threshold.',
-        )
-        break
+    simulatorStateRef.current =
+      result.state
 
-      case 'hs_ventilator':
-        setToast(
-          'Ventilator controls selected.',
-        )
-        break
+    setSimulatorState(
+      result.state,
+    )
 
-      case 'hs_ehr':
-        setToast(
-          'EHR terminal selected.',
-        )
-        break
+    setSelectedHotspot(
+      null,
+    )
+  }
 
-      case 'hs_call':
-        setToast(
-          'Clinical escalation station selected.',
-        )
-        break
+  /*
+   * ============================================================
+   * DECISION
+   * ============================================================
+   */
+
+  function handleDecision(
+    optionId: string,
+  ) {
+    if (
+      !scenario ||
+      !simulatorState ||
+      currentNode?.type !==
+        'decision'
+    ) {
+      return
+    }
+
+    const result =
+      selectDecision(
+        scenario,
+        simulatorState,
+        optionId,
+      )
+
+    simulatorStateRef.current =
+      result.state
+
+    setSimulatorState(
+      result.state,
+    )
+
+    setSelectedHotspot(
+      null,
+    )
+
+    if (result.toast) {
+      setToast(
+        result.toast,
+      )
     }
   }
+
+  /*
+   * ============================================================
+   * RESET
+   * ============================================================
+   */
+
+  function handleReset() {
+    if (!scenario) {
+      return
+    }
+
+    const initialState =
+      createInitialState(
+        scenario,
+      )
+
+    simulatorStateRef.current =
+      initialState
+
+    setSimulatorState(
+      initialState,
+    )
+
+    setSelectedHotspot(
+      null,
+    )
+
+    setHoveredHotspot(
+      null,
+    )
+
+    setToast(
+      'Scenario reset.',
+    )
+  }
+
+  /*
+   * ============================================================
+   * SELECTED / HOVERED OBJECT INFO
+   * ============================================================
+   */
 
   const selectedInfo =
     selectedHotspot
@@ -239,8 +724,90 @@ function App() {
         ]
       : null
 
+  /*
+   * If the current decision contains an option associated
+   * with the selected 3D object, show that action.
+   */
+
+  const availableOptions =
+    currentNode?.type ===
+      'decision' &&
+    selectedHotspot
+      ? currentNode.options.filter(
+          (option) =>
+            option.target_hotspot ===
+            selectedHotspot,
+        )
+      : []
+
+  /*
+   * ============================================================
+   * LOADING SCREEN
+   * ============================================================
+   */
+
+  if (
+    !scenario ||
+    !simulatorState ||
+    !currentNode
+  ) {
+    return (
+      <main className="simulator">
+        <section className="loading-screen">
+          {loadError ? (
+            <>
+              <span className="eyebrow">
+                Scenario error
+              </span>
+
+              <h1>
+                Unable to load
+                simulation
+              </h1>
+
+              <p>
+                {loadError}
+              </p>
+
+              <button
+                type="button"
+                className="primary-action"
+                onClick={() =>
+                  void initializeScenario()
+                }
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="loading-indicator" />
+
+              <strong>
+                Loading ICU
+                scenario…
+              </strong>
+            </>
+          )}
+        </section>
+      </main>
+    )
+  }
+
+  /*
+   * ============================================================
+   * MAIN INTERFACE
+   * ============================================================
+   */
+
   return (
     <main className="simulator">
+      {/*
+       * --------------------------------------------------------
+       * TOP BAR
+       * --------------------------------------------------------
+       */}
+
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">
@@ -249,12 +816,16 @@ function App() {
 
           <div className="brand-copy">
             <strong>
-              Clinical Simulator
+              Clinical
+              Simulator
             </strong>
 
             <span>
-              Hypoxemia
-              Management
+              {
+                scenario
+                  .scenario_meta
+                  .title
+              }
             </span>
           </div>
         </div>
@@ -266,26 +837,61 @@ function App() {
             </span>
 
             <strong>
-              <span className="status-dot" />
-              In progress
+              <span
+                className={
+                  simulatorState.completed
+                    ? 'status-dot status-complete'
+                    : 'status-dot'
+                }
+              />
+
+              {simulatorState.completed
+                ? 'Complete'
+                : 'In progress'}
             </strong>
           </div>
 
           <div className="status-item">
-            <span>Time</span>
+            <span>
+              Score
+            </span>
+
+            <strong>
+              {
+                simulatorState.score
+              }
+            </strong>
+          </div>
+
+          <div className="status-item">
+            <span>
+              Time
+            </span>
 
             <strong>
               {formatTime(
-                elapsed,
+                simulatorState.time_elapsed,
               )}
             </strong>
           </div>
 
           <button
             type="button"
+            className="reset-button"
+            onClick={
+              handleReset
+            }
+          >
+            Reset
+          </button>
+
+          <button
+            type="button"
             className="help-button"
             onClick={() =>
-              setHelpOpen(true)
+              setHelpOpen(
+                true,
+              )
             }
             aria-label="Open simulator help"
           >
@@ -293,6 +899,12 @@ function App() {
           </button>
         </div>
       </header>
+
+      {/*
+       * --------------------------------------------------------
+       * 3D WORKSPACE
+       * --------------------------------------------------------
+       */}
 
       <section className="workspace">
         <div className="scene-container">
@@ -307,6 +919,12 @@ function App() {
         </div>
 
         <div className="interface-layer">
+          {/*
+           * ----------------------------------------------------
+           * VITALS
+           * ----------------------------------------------------
+           */}
+
           <section className="vitals-panel">
             <div className="panel-heading">
               <div>
@@ -326,28 +944,47 @@ function App() {
             </div>
 
             <div className="vitals-grid">
-              <div className="vital-card vital-danger">
+              <div
+                className={
+                  monitorAlarm
+                    ? 'vital-card vital-danger'
+                    : 'vital-card'
+                }
+              >
                 <span>
                   SpO₂
                 </span>
 
                 <strong>
-                  88
+                  {
+                    simulatorState
+                      .vitals
+                      .spo2
+                  }
+
                   <small>
                     %
                   </small>
                 </strong>
 
                 <em>
-                  Below threshold
+                  {monitorAlarm
+                    ? 'Below threshold'
+                    : 'Within range'}
                 </em>
               </div>
 
               <div className="vital-card">
-                <span>HR</span>
+                <span>
+                  HR
+                </span>
 
                 <strong>
-                  110
+                  {
+                    simulatorState
+                      .vitals.hr
+                  }
+
                   <small>
                     bpm
                   </small>
@@ -359,25 +996,37 @@ function App() {
               </div>
 
               <div className="vital-card">
-                <span>RR</span>
+                <span>
+                  RR
+                </span>
 
                 <strong>
-                  24
+                  {
+                    simulatorState
+                      .vitals.rr
+                  }
+
                   <small>
                     /min
                   </small>
                 </strong>
 
                 <em>
-                  Respiratory rate
+                  Respiratory
+                  rate
                 </em>
               </div>
 
               <div className="vital-card">
-                <span>BP</span>
+                <span>
+                  BP
+                </span>
 
                 <strong className="bp-value">
-                  125/80
+                  {
+                    simulatorState
+                      .vitals.bp
+                  }
                 </strong>
 
                 <em>
@@ -392,10 +1041,21 @@ function App() {
               </span>
 
               <strong>
-                37.0 °C
+                {
+                  simulatorState
+                    .vitals
+                    .temp
+                }{' '}
+                °C
               </strong>
             </div>
           </section>
+
+          {/*
+           * ----------------------------------------------------
+           * CURRENT OBJECTIVE / NODE
+           * ----------------------------------------------------
+           */}
 
           <section className="objective-panel">
             <span className="eyebrow">
@@ -403,19 +1063,74 @@ function App() {
             </span>
 
             <strong>
-              Assess the
-              patient's
-              condition
+              {currentNode.type ===
+              'gate'
+                ? 'Complete required documentation'
+                : currentNode.type ===
+                    'end'
+                  ? 'Scenario complete'
+                  : 'Respond to the current situation'}
             </strong>
 
             <p>
-              Explore the room
-              and select the
-              equipment or
-              patient you want
-              to interact with.
+              {
+                currentNode.text
+              }
             </p>
+
+            {timeoutRemaining !==
+              null && (
+              <div className="timeout-badge">
+                Response time:{' '}
+                <strong>
+                  {
+                    timeoutRemaining
+                  }
+                  s
+                </strong>
+              </div>
+            )}
           </section>
+
+          {/*
+           * ----------------------------------------------------
+           * MESSAGE NODE
+           * ----------------------------------------------------
+           */}
+
+          {currentNode.type ===
+            'message' && (
+            <div className="node-action-bar">
+              <div>
+                <span className="eyebrow">
+                  Scenario update
+                </span>
+
+                <strong>
+                  {
+                    currentNode.text
+                  }
+                </strong>
+              </div>
+
+              <button
+                type="button"
+                className="primary-action node-continue-button"
+                onClick={
+                  handleAdvanceMessage
+                }
+              >
+                Continue
+                <span>→</span>
+              </button>
+            </div>
+          )}
+
+          {/*
+           * ----------------------------------------------------
+           * SELECTED HOTSPOT
+           * ----------------------------------------------------
+           */}
 
           {selectedInfo && (
             <aside className="interaction-panel">
@@ -452,23 +1167,32 @@ function App() {
 
               {selectedHotspot ===
                 'hs_monitor' && (
-                <div className="clinical-note danger-note">
+                <div
+                  className={
+                    monitorAlarm
+                      ? 'clinical-note danger-note'
+                      : 'clinical-note'
+                  }
+                >
                   <span>
                     Current
                     status
                   </span>
 
                   <strong>
-                    SpO₂ 88%
+                    SpO₂{' '}
+                    {
+                      simulatorState
+                        .vitals
+                        .spo2
+                    }
+                    %
                   </strong>
 
                   <p>
-                    Oxygen
-                    saturation is
-                    below the
-                    configured
-                    alert
-                    threshold.
+                    {monitorAlarm
+                      ? 'Oxygen saturation is below the configured alert threshold.'
+                      : 'No active oxygen saturation alarm.'}
                   </p>
                 </div>
               )}
@@ -477,40 +1201,100 @@ function App() {
                 'hs_patient' && (
                 <div className="clinical-note">
                   <span>
-                    Observation
+                    Patient
                   </span>
 
                   <strong>
-                    Assessment
-                    required
+                    Bed 01
                   </strong>
 
                   <p>
-                    Review the
-                    patient's
-                    visible
-                    condition
-                    before
-                    proceeding.
+                    Select an
+                    available action
+                    to continue the
+                    clinical scenario.
                   </p>
                 </div>
               )}
 
-              <button
-                type="button"
-                className="primary-action"
-                onClick={
-                  handleContextAction
-                }
-              >
-                {
-                  selectedInfo.actionLabel
-                }
+              {availableOptions.length >
+              0 ? (
+                <div className="decision-actions">
+                  {availableOptions.map(
+                    (option) => (
+                      <button
+                        key={
+                          option.id
+                        }
+                        type="button"
+                        className="primary-action"
+                        onClick={() =>
+                          handleDecision(
+                            option.id,
+                          )
+                        }
+                      >
+                        {
+                          option.label
+                        }
 
-                <span>→</span>
-              </button>
+                        <span>
+                          →
+                        </span>
+                      </button>
+                    ),
+                  )}
+                </div>
+              ) : currentNode.type ===
+                'decision' ? (
+                <div className="clinical-note unavailable-note">
+                  <span>
+                    No current
+                    action
+                  </span>
+
+                  <strong>
+                    Try another
+                    object
+                  </strong>
+
+                  <p>
+                    This equipment
+                    is not associated
+                    with an available
+                    decision at this
+                    stage.
+                  </p>
+                </div>
+              ) : currentNode.type ===
+                'gate' &&
+                selectedHotspot ===
+                  'hs_ehr' ? (
+                <div className="clinical-note">
+                  <span>
+                    Documentation
+                  </span>
+
+                  <strong>
+                    EHR required
+                  </strong>
+
+                  <p>
+                    The documentation
+                    interface will be
+                    connected in the
+                    next milestone.
+                  </p>
+                </div>
+              ) : null}
             </aside>
           )}
+
+          {/*
+           * ----------------------------------------------------
+           * HOVER LABEL
+           * ----------------------------------------------------
+           */}
 
           {hoveredInfo &&
             !selectedInfo && (
@@ -527,6 +1311,12 @@ function App() {
                 </span>
               </div>
             )}
+
+          {/*
+           * ----------------------------------------------------
+           * SCENE HELP
+           * ----------------------------------------------------
+           */}
 
           <div className="scene-help">
             <span>
@@ -546,29 +1336,94 @@ function App() {
             </span>
 
             <span>
-              Hover to identify
+              Hover to
+              identify
             </span>
           </div>
 
-          <div className="alarm-banner">
-            <div className="alarm-icon">
-              !
+          {/*
+           * ----------------------------------------------------
+           * GLOBAL ALARM
+           * ----------------------------------------------------
+           */}
+
+          {monitorAlarm && (
+            <div className="alarm-banner">
+              <div className="alarm-icon">
+                !
+              </div>
+
+              <div>
+                <strong>
+                  SpO₂ alarm
+                  active
+                </strong>
+
+                <span>
+                  Oxygen
+                  saturation is
+                  below 90%.
+                </span>
+              </div>
             </div>
+          )}
 
-            <div>
-              <strong>
-                SpO₂ alarm active
-              </strong>
+          {/*
+           * ----------------------------------------------------
+           * END NODE
+           * ----------------------------------------------------
+           */}
 
-              <span>
-                Oxygen
-                saturation is
-                below 90%.
+          {currentNode.type ===
+            'end' && (
+            <section className="scenario-complete-panel">
+              <span className="eyebrow">
+                Debrief
               </span>
-            </div>
-          </div>
+
+              <h2>
+                Scenario
+                complete
+              </h2>
+
+              <p>
+                {
+                  currentNode.text
+                }
+              </p>
+
+              <div className="completion-score">
+                <span>
+                  Final score
+                </span>
+
+                <strong>
+                  {
+                    simulatorState.score
+                  }
+                </strong>
+              </div>
+
+              <button
+                type="button"
+                className="primary-action"
+                onClick={
+                  handleReset
+                }
+              >
+                Restart scenario
+                <span>↻</span>
+              </button>
+            </section>
+          )}
         </div>
       </section>
+
+      {/*
+       * --------------------------------------------------------
+       * TOAST
+       * --------------------------------------------------------
+       */}
 
       {toast && (
         <div
@@ -584,11 +1439,19 @@ function App() {
         </div>
       )}
 
+      {/*
+       * --------------------------------------------------------
+       * HELP
+       * --------------------------------------------------------
+       */}
+
       {helpOpen && (
         <div
           className="modal-backdrop"
           onMouseDown={() =>
-            setHelpOpen(false)
+            setHelpOpen(
+              false,
+            )
           }
         >
           <section
@@ -606,7 +1469,9 @@ function App() {
               type="button"
               className="close-panel"
               onClick={() =>
-                setHelpOpen(false)
+                setHelpOpen(
+                  false,
+                )
               }
               aria-label="Close help"
             >
@@ -618,16 +1483,17 @@ function App() {
             </span>
 
             <h2 id="help-title">
-              Interacting with
-              the ICU
+              Interacting
+              with the ICU
             </h2>
 
             <p>
-              Move around the
-              virtual ICU and
-              interact directly
-              with objects in
-              the room.
+              Interact directly
+              with the virtual
+              ICU equipment to
+              make decisions and
+              progress through
+              the scenario.
             </p>
 
             <div className="help-items">
@@ -657,25 +1523,29 @@ function App() {
               <div>
                 <strong>
                   Identify
-                  object
+                  objects
                 </strong>
 
                 <span>
                   Hover over
+                  equipment to
+                  discover
                   interactive
-                  equipment.
+                  hotspots.
                 </span>
               </div>
 
               <div>
                 <strong>
-                  Interact
+                  Make a
+                  decision
                 </strong>
 
                 <span>
-                  Click a
-                  highlighted
-                  object.
+                  Click an object
+                  and choose the
+                  available
+                  action.
                 </span>
               </div>
             </div>
@@ -684,7 +1554,9 @@ function App() {
               type="button"
               className="primary-action"
               onClick={() =>
-                setHelpOpen(false)
+                setHelpOpen(
+                  false,
+                )
               }
             >
               Return to

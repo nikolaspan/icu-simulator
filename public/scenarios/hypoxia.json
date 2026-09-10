@@ -1,0 +1,429 @@
+{
+  "schema_version": "1.0",
+  "scenario_meta": {
+    "id": "icu_scenario_hypoxia_v1",
+    "title": "ICU: Hypoxemia & Ventilator Management",
+    "description": "Scenario involving a drop in oxygen saturation, ventilator interaction and mandatory electronic documentation.",
+    "estimated_duration_minutes": 8,
+    "difficulty": "Intermediate",
+    "learning_goals": [
+      "Recognize an SpO2 clinical alarm",
+      "Interact with ICU hotspots",
+      "Use documentation gates in the EHR",
+      "Follow the escalation process"
+    ]
+  },
+
+  "initial_state": {
+    "time_elapsed": 0,
+    "current_score": 100,
+
+    "flags": {
+      "assessment_complete": false,
+      "oxygen_adjusted": false,
+      "documentation_1_complete": false,
+      "escalation_complete": false,
+      "documentation_2_complete": false
+    },
+
+    "vitals": {
+      "hr": 110,
+      "spo2": 88,
+      "rr": 24,
+      "bp": "125/80",
+      "temp": 37.0
+    },
+
+    "ui": {
+      "active_hotspots": [
+        "hs_monitor",
+        "hs_patient",
+        "hs_ventilator",
+        "hs_ehr",
+        "hs_call"
+      ],
+
+      "monitor_alert": true
+    }
+  },
+
+  "hotspots": [
+    {
+      "id": "hs_monitor",
+      "label": "Vital Signs Monitor"
+    },
+    {
+      "id": "hs_patient",
+      "label": "Patient / Bed"
+    },
+    {
+      "id": "hs_ventilator",
+      "label": "Ventilator"
+    },
+    {
+      "id": "hs_ehr",
+      "label": "EHR Terminal"
+    },
+    {
+      "id": "hs_call",
+      "label": "Call Button"
+    }
+  ],
+
+  "ehr_config": {
+    "forms": {
+      "assessment_form": {
+        "title": "Clinical Assessment",
+        "fields": [
+          "observation",
+          "skin_color",
+          "consciousness"
+        ]
+      },
+
+      "intervention_form": {
+        "title": "Intervention / Settings",
+        "fields": [
+          "device",
+          "fiO2_setting",
+          "flow_rate"
+        ]
+      },
+
+      "communication_log": {
+        "title": "Communication Log",
+        "fields": [
+          "recipient",
+          "reason",
+          "outcome"
+        ]
+      }
+    }
+  },
+
+  "rules": {
+    "global_rules": [
+      {
+        "id": "rule_hypoxia_alarm",
+
+        "condition": {
+          "vitals.spo2": {
+            "lt": 90
+          }
+        },
+
+        "effects": [
+          {
+            "type": "ui_visual",
+            "target": "hs_monitor",
+            "state": "blinking_red"
+          },
+          {
+            "type": "ui_toast",
+            "style": "danger",
+            "message": "ALARM: SpO2 is below 90%."
+          }
+        ]
+      }
+    ]
+  },
+
+  "nodes": [
+    {
+      "id": "n1_start",
+
+      "type": "message",
+
+      "text": "You are in the ICU. The patient in Bed 1 develops sudden shortness of breath. The monitor alarm is active and SpO2 is 88%.",
+
+      "next_node_id": "n2_initial_decision"
+    },
+
+    {
+      "id": "n2_initial_decision",
+
+      "type": "decision",
+
+      "text": "What is your first action?",
+
+      "options": [
+        {
+          "id": "opt_assess",
+
+          "label": "Perform immediate patient assessment",
+
+          "target_hotspot": "hs_patient",
+
+          "effects": {
+            "score_delta": 10,
+
+            "state_update": {
+              "flags.assessment_complete": true
+            },
+
+            "toast": "You observe cyanosis and rapid breathing."
+          },
+
+          "next_node_id": "n3_intervention"
+        },
+
+        {
+          "id": "opt_check_monitor",
+
+          "label": "Review monitor history",
+
+          "target_hotspot": "hs_monitor",
+
+          "effects": {
+            "score_delta": 5,
+
+            "toast": "The monitor shows a decrease in SpO2 over the last 5 minutes."
+          },
+
+          "next_node_id": "n3_intervention"
+        }
+      ],
+
+      "timeout": {
+        "seconds": 30,
+
+        "on_timeout_effects": {
+          "vitals_update": {
+            "spo2": 85,
+            "hr": 120
+          },
+
+          "score_delta": -10,
+
+          "toast": "Delay detected. SpO2 has fallen to 85%."
+        },
+
+        "next_node_id": "n3_intervention"
+      }
+    },
+
+    {
+      "id": "n3_intervention",
+
+      "type": "decision",
+
+      "text": "The scenario requires adjustment of the ventilator oxygen setting.",
+
+      "options": [
+        {
+          "id": "opt_increase_o2",
+
+          "label": "Increase FiO2 to 100%",
+
+          "target_hotspot": "hs_ventilator",
+
+          "effects": {
+            "state_update": {
+              "flags.oxygen_adjusted": true
+            },
+
+            "vitals_update": {
+              "spo2": 94,
+              "hr": 100
+            },
+
+            "score_delta": 20,
+
+            "toast": "The setting has been changed. SpO2 is improving."
+          },
+
+          "next_node_id": "n4_gate_documentation_1"
+        },
+
+        {
+          "id": "opt_do_nothing",
+
+          "label": "Make no change and continue monitoring",
+
+          "target_hotspot": "hs_patient",
+
+          "effects": {
+            "vitals_update": {
+              "spo2": 80,
+              "hr": 130
+            },
+
+            "score_delta": -20,
+
+            "toast": "Critical scenario error. The patient's SpO2 continues to fall."
+          },
+
+          "next_node_id": "n4_gate_documentation_1"
+        }
+      ]
+    },
+
+    {
+      "id": "n4_gate_documentation_1",
+
+      "type": "gate",
+
+      "text": "Documentation required: assessment and intervention.",
+
+      "description": "The scenario cannot continue until the required EHR documentation is completed.",
+
+      "gate_requirements": {
+        "target_hotspot": "hs_ehr",
+
+        "required_forms": [
+          {
+            "form_id": "assessment_form",
+
+            "fields": [
+              "observation"
+            ]
+          },
+
+          {
+            "form_id": "intervention_form",
+
+            "fields": [
+              "fiO2_setting"
+            ]
+          }
+        ]
+      },
+
+      "feedback_blocked": "Complete the required EHR documentation before continuing.",
+
+      "feedback_success": "Documentation saved successfully.",
+
+      "effects_on_pass": {
+        "state_update": {
+          "flags.documentation_1_complete": true
+        },
+
+        "score_delta": 10
+      },
+
+      "next_node_id": "n5_reassessment"
+    },
+
+    {
+      "id": "n5_reassessment",
+
+      "type": "message",
+
+      "text": "Five minutes later, the patient's SpO2 is stable at 94%, but rapid breathing continues.",
+
+      "next_node_id": "n6_escalation_decision"
+    },
+
+    {
+      "id": "n6_escalation_decision",
+
+      "type": "decision",
+
+      "text": "Is further action required?",
+
+      "options": [
+        {
+          "id": "opt_call_doc",
+
+          "label": "Call the physician",
+
+          "target_hotspot": "hs_call",
+
+          "effects": {
+            "state_update": {
+              "flags.escalation_complete": true
+            },
+
+            "score_delta": 10,
+
+            "toast": "The on-duty physician has been contacted."
+          },
+
+          "next_node_id": "n7_gate_documentation_2"
+        },
+
+        {
+          "id": "opt_wait",
+
+          "label": "Continue monitoring",
+
+          "target_hotspot": "hs_monitor",
+
+          "effects": {
+            "score_delta": 0,
+
+            "toast": "You continue monitoring the patient."
+          },
+
+          "next_node_id": "n8_end_scenario"
+        }
+      ]
+    },
+
+    {
+      "id": "n7_gate_documentation_2",
+
+      "type": "gate",
+
+      "text": "Documentation required: communication log.",
+
+      "description": "Record the physician call in the EHR Communication Log.",
+
+      "gate_requirements": {
+        "target_hotspot": "hs_ehr",
+
+        "required_forms": [
+          {
+            "form_id": "communication_log",
+
+            "fields": [
+              "recipient",
+              "outcome"
+            ]
+          }
+        ]
+      },
+
+      "feedback_blocked": "The physician call must be documented in the EHR.",
+
+      "effects_on_pass": {
+        "state_update": {
+          "flags.documentation_2_complete": true
+        },
+
+        "score_delta": 5
+      },
+
+      "next_node_id": "n8_end_scenario"
+    },
+
+    {
+      "id": "n8_end_scenario",
+
+      "type": "end",
+
+      "text": "The scenario is complete.",
+
+      "debrief_config": {
+        "show_score": true,
+        "show_decision_path": true,
+        "highlight_missed_docs": true,
+        "export_log": true
+      }
+    }
+  ],
+
+  "logging": {
+    "enabled": true,
+
+    "log_events": [
+      "NODE_ENTER",
+      "HOTSPOT_INTERACTION",
+      "OPTION_SELECTED",
+      "EHR_SUBMIT",
+      "VITALS_CHANGE"
+    ],
+
+    "export_format": "JSON"
+  }
+}
