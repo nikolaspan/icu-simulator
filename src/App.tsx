@@ -7,15 +7,19 @@ import {
 } from 'react'
 
 import ICUScene from './components/ICUScene'
+import EHRPanel from './components/EHRPanel'
 
 import {
   advanceMessage,
   applyTimeout,
   createInitialState,
   getActiveGlobalEffects,
+  getMissingGateFields,
   getNode,
   incrementTime,
+  passGate,
   selectDecision,
+  type EHRFormValues,
 } from './engine/scenarioEngine'
 
 import {
@@ -23,6 +27,7 @@ import {
 } from './engine/scenarioLoader'
 
 import type {
+  GateNode,
   HotspotId,
   Scenario,
   SimulatorState,
@@ -34,11 +39,6 @@ import './App.css'
  * ============================================================
  * HOTSPOT UI INFORMATION
  * ============================================================
- *
- * This describes how each physical object is presented to
- * the user.
- *
- * Scenario progression itself comes from the JSON.
  */
 
 interface HotspotInfo {
@@ -96,9 +96,10 @@ const hotspotInfo: Record<
 function formatTime(
   totalSeconds: number,
 ) {
-  const minutes = Math.floor(
-    totalSeconds / 60,
-  )
+  const minutes =
+    Math.floor(
+      totalSeconds / 60,
+    )
 
   const seconds =
     totalSeconds % 60
@@ -118,6 +119,33 @@ function formatTime(
 
 /*
  * ============================================================
+ * GATE REQUIRED FIELD PATHS
+ * ============================================================
+ *
+ * Example:
+ *
+ * assessment_form.observation
+ * intervention_form.fiO2_setting
+ */
+
+function getGateRequiredFields(
+  gate: GateNode,
+): string[] {
+  return (
+    gate.gate_requirements
+      .required_forms
+      .flatMap(
+        (requiredForm) =>
+          requiredForm.fields.map(
+            (field) =>
+              `${requiredForm.form_id}.${field}`,
+          ),
+      )
+  )
+}
+
+/*
+ * ============================================================
  * APP
  * ============================================================
  */
@@ -125,7 +153,7 @@ function formatTime(
 function App() {
   /*
    * ----------------------------------------------------------
-   * Scenario
+   * Scenario state
    * ----------------------------------------------------------
    */
 
@@ -142,11 +170,6 @@ function App() {
   ] = useState<
     SimulatorState | null
   >(null)
-
-  /*
-   * A ref lets timeout callbacks access the most recent state
-   * without depending on an old render.
-   */
 
   const simulatorStateRef =
     useRef<
@@ -184,6 +207,18 @@ function App() {
     helpOpen,
     setHelpOpen,
   ] = useState(false)
+
+  const [
+    ehrOpen,
+    setEhrOpen,
+  ] = useState(false)
+
+  const [
+    ehrValues,
+    setEhrValues,
+  ] = useState<EHRFormValues>(
+    {},
+  )
 
   const [
     loadError,
@@ -242,6 +277,10 @@ function App() {
         setTimeoutRemaining(
           null,
         )
+
+        setEhrOpen(false)
+
+        setEhrValues({})
       } catch (error) {
         console.error(error)
 
@@ -264,7 +303,7 @@ function App() {
   }, [initializeScenario])
 
   /*
-   * Keep the ref synchronized with React state.
+   * Keep the ref synchronized.
    */
 
   useEffect(() => {
@@ -303,6 +342,44 @@ function App() {
 
   /*
    * ============================================================
+   * REQUIRED EHR FIELDS
+   * ============================================================
+   */
+
+  const requiredEhrFields =
+    useMemo(() => {
+      if (
+        currentNode?.type !==
+        'gate'
+      ) {
+        return []
+      }
+
+      return getGateRequiredFields(
+        currentNode,
+      )
+    }, [currentNode])
+
+  const missingEhrFields =
+    useMemo(() => {
+      if (
+        currentNode?.type !==
+        'gate'
+      ) {
+        return []
+      }
+
+      return getMissingGateFields(
+        currentNode,
+        ehrValues,
+      )
+    }, [
+      currentNode,
+      ehrValues,
+    ])
+
+  /*
+   * ============================================================
    * SCENARIO CLOCK
    * ============================================================
    */
@@ -313,9 +390,7 @@ function App() {
     true
 
   useEffect(() => {
-    if (
-      scenarioCompleted
-    ) {
+    if (scenarioCompleted) {
       return
     }
 
@@ -398,10 +473,6 @@ function App() {
                 )
               }
 
-              /*
-               * Timeout reached.
-               */
-
               window.clearInterval(
                 timer,
               )
@@ -461,7 +532,7 @@ function App() {
 
   /*
    * ============================================================
-   * TOAST AUTO DISMISS
+   * TOAST
    * ============================================================
    */
 
@@ -501,9 +572,13 @@ function App() {
         return
       }
 
+      if (ehrOpen) {
+        setEhrOpen(false)
+        return
+      }
+
       if (helpOpen) {
         setHelpOpen(false)
-
         return
       }
 
@@ -522,7 +597,10 @@ function App() {
         'keydown',
         handleKeyDown,
       )
-  }, [helpOpen])
+  }, [
+    ehrOpen,
+    helpOpen,
+  ])
 
   /*
    * ============================================================
@@ -538,14 +616,6 @@ function App() {
           simulatorState,
         )
       : []
-
-  /*
-   * The scenario JSON contains:
-   *
-   * vitals.spo2 < 90
-   *       ↓
-   * monitor -> blinking_red
-   */
 
   const monitorAlarm =
     activeGlobalEffects.some(
@@ -570,6 +640,24 @@ function App() {
         hotspot:
           HotspotId,
       ) => {
+        /*
+         * EHR is a real application screen,
+         * so open it directly when selected.
+         */
+
+        if (
+          hotspot ===
+          'hs_ehr'
+        ) {
+          setSelectedHotspot(
+            null,
+          )
+
+          setEhrOpen(true)
+
+          return
+        }
+
         setSelectedHotspot(
           hotspot,
         )
@@ -670,6 +758,106 @@ function App() {
 
   /*
    * ============================================================
+   * EHR FIELD CHANGE
+   * ============================================================
+   */
+
+  function handleEhrFieldChange(
+    formId: string,
+    field: string,
+    value: string,
+  ) {
+    setEhrValues(
+      (current) => ({
+        ...current,
+
+        [formId]: {
+          ...current[
+            formId
+          ],
+
+          [field]: value,
+        },
+      }),
+    )
+  }
+
+  /*
+   * ============================================================
+   * SAVE EHR / PASS GATE
+   * ============================================================
+   */
+
+  function handleEhrContinue() {
+    if (
+      !scenario ||
+      !simulatorState
+    ) {
+      return
+    }
+
+    /*
+     * Outside a gate, EHR remains readable/editable
+     * but there is no scenario progression to perform.
+     */
+
+    if (
+      currentNode?.type !==
+      'gate'
+    ) {
+      setToast(
+        'EHR information saved.',
+      )
+
+      return
+    }
+
+    const previousNodeId =
+      simulatorState
+        .current_node_id
+
+    const result =
+      passGate(
+        scenario,
+        simulatorState,
+        ehrValues,
+      )
+
+    simulatorStateRef.current =
+      result.state
+
+    setSimulatorState(
+      result.state,
+    )
+
+    if (result.toast) {
+      setToast(
+        result.toast,
+      )
+    }
+
+    /*
+     * If the node changed, the gate passed.
+     *
+     * Close the EHR so the user immediately sees
+     * the next scenario event.
+     */
+
+    if (
+      result.state
+        .current_node_id !==
+      previousNodeId
+    ) {
+      setEhrOpen(false)
+
+      setSelectedHotspot(
+        null,
+      )
+    }
+  }
+
+  /*
+   * ============================================================
    * RESET
    * ============================================================
    */
@@ -699,6 +887,10 @@ function App() {
       null,
     )
 
+    setEhrOpen(false)
+
+    setEhrValues({})
+
     setToast(
       'Scenario reset.',
     )
@@ -706,7 +898,7 @@ function App() {
 
   /*
    * ============================================================
-   * SELECTED / HOVERED OBJECT INFO
+   * HOTSPOT INFORMATION
    * ============================================================
    */
 
@@ -724,11 +916,6 @@ function App() {
         ]
       : null
 
-  /*
-   * If the current decision contains an option associated
-   * with the selected 3D object, show that action.
-   */
-
   const availableOptions =
     currentNode?.type ===
       'decision' &&
@@ -742,7 +929,7 @@ function App() {
 
   /*
    * ============================================================
-   * LOADING SCREEN
+   * LOADING / ERROR
    * ============================================================
    */
 
@@ -796,18 +983,12 @@ function App() {
 
   /*
    * ============================================================
-   * MAIN INTERFACE
+   * MAIN UI
    * ============================================================
    */
 
   return (
     <main className="simulator">
-      {/*
-       * --------------------------------------------------------
-       * TOP BAR
-       * --------------------------------------------------------
-       */}
-
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">
@@ -816,8 +997,7 @@ function App() {
 
           <div className="brand-copy">
             <strong>
-              Clinical
-              Simulator
+              Clinical Simulator
             </strong>
 
             <span>
@@ -870,7 +1050,8 @@ function App() {
 
             <strong>
               {formatTime(
-                simulatorState.time_elapsed,
+                simulatorState
+                  .time_elapsed,
               )}
             </strong>
           </div>
@@ -900,12 +1081,6 @@ function App() {
         </div>
       </header>
 
-      {/*
-       * --------------------------------------------------------
-       * 3D WORKSPACE
-       * --------------------------------------------------------
-       */}
-
       <section className="workspace">
         <div className="scene-container">
           <ICUScene
@@ -920,9 +1095,9 @@ function App() {
 
         <div className="interface-layer">
           {/*
-           * ----------------------------------------------------
+           * ======================================
            * VITALS
-           * ----------------------------------------------------
+           * ======================================
            */}
 
           <section className="vitals-panel">
@@ -1012,8 +1187,7 @@ function App() {
                 </strong>
 
                 <em>
-                  Respiratory
-                  rate
+                  Respiratory rate
                 </em>
               </div>
 
@@ -1043,8 +1217,7 @@ function App() {
               <strong>
                 {
                   simulatorState
-                    .vitals
-                    .temp
+                    .vitals.temp
                 }{' '}
                 °C
               </strong>
@@ -1052,9 +1225,9 @@ function App() {
           </section>
 
           {/*
-           * ----------------------------------------------------
-           * CURRENT OBJECTIVE / NODE
-           * ----------------------------------------------------
+           * ======================================
+           * CURRENT OBJECTIVE
+           * ======================================
            */}
 
           <section className="objective-panel">
@@ -1078,6 +1251,24 @@ function App() {
               }
             </p>
 
+            {currentNode.type ===
+              'gate' && (
+              <div className="gate-progress">
+                <span>
+                  Documentation
+                </span>
+
+                <strong>
+                  {requiredEhrFields.length -
+                    missingEhrFields.length}
+                  /
+                  {
+                    requiredEhrFields.length
+                  }
+                </strong>
+              </div>
+            )}
+
             {timeoutRemaining !==
               null && (
               <div className="timeout-badge">
@@ -1093,9 +1284,9 @@ function App() {
           </section>
 
           {/*
-           * ----------------------------------------------------
+           * ======================================
            * MESSAGE NODE
-           * ----------------------------------------------------
+           * ======================================
            */}
 
           {currentNode.type ===
@@ -1127,9 +1318,63 @@ function App() {
           )}
 
           {/*
-           * ----------------------------------------------------
-           * SELECTED HOTSPOT
-           * ----------------------------------------------------
+           * ======================================
+           * DOCUMENTATION GATE
+           * ======================================
+           */}
+
+          {currentNode.type ===
+            'gate' &&
+            !ehrOpen && (
+              <div className="documentation-gate-banner">
+                <div className="gate-icon">
+                  !
+                </div>
+
+                <div>
+                  <span className="eyebrow">
+                    Documentation
+                    required
+                  </span>
+
+                  <strong>
+                    {
+                      currentNode.text
+                    }
+                  </strong>
+
+                  <p>
+                    {
+                      missingEhrFields.length
+                    }{' '}
+                    required{' '}
+                    {missingEhrFields.length ===
+                    1
+                      ? 'field remains'
+                      : 'fields remain'}
+                    .
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="primary-action gate-open-button"
+                  onClick={() =>
+                    setEhrOpen(
+                      true,
+                    )
+                  }
+                >
+                  Open EHR
+                  <span>→</span>
+                </button>
+              </div>
+            )}
+
+          {/*
+           * ======================================
+           * SELECTED 3D HOTSPOT
+           * ======================================
            */}
 
           {selectedInfo && (
@@ -1175,8 +1420,7 @@ function App() {
                   }
                 >
                   <span>
-                    Current
-                    status
+                    Current status
                   </span>
 
                   <strong>
@@ -1212,7 +1456,7 @@ function App() {
                     Select an
                     available action
                     to continue the
-                    clinical scenario.
+                    scenario.
                   </p>
                 </div>
               )}
@@ -1259,31 +1503,33 @@ function App() {
                   </strong>
 
                   <p>
-                    This equipment
-                    is not associated
+                    This object is
+                    not associated
                     with an available
                     decision at this
                     stage.
                   </p>
                 </div>
               ) : currentNode.type ===
-                'gate' &&
-                selectedHotspot ===
-                  'hs_ehr' ? (
-                <div className="clinical-note">
+                'gate' ? (
+                <div className="clinical-note danger-note">
                   <span>
-                    Documentation
+                    Scenario
+                    locked
                   </span>
 
                   <strong>
-                    EHR required
+                    Documentation
+                    required
                   </strong>
 
                   <p>
-                    The documentation
-                    interface will be
-                    connected in the
-                    next milestone.
+                    Complete the
+                    required EHR
+                    documentation
+                    before the
+                    scenario can
+                    continue.
                   </p>
                 </div>
               ) : null}
@@ -1291,13 +1537,14 @@ function App() {
           )}
 
           {/*
-           * ----------------------------------------------------
+           * ======================================
            * HOVER LABEL
-           * ----------------------------------------------------
+           * ======================================
            */}
 
           {hoveredInfo &&
-            !selectedInfo && (
+            !selectedInfo &&
+            !ehrOpen && (
               <div className="hover-label">
                 <strong>
                   {
@@ -1313,9 +1560,9 @@ function App() {
             )}
 
           {/*
-           * ----------------------------------------------------
+           * ======================================
            * SCENE HELP
-           * ----------------------------------------------------
+           * ======================================
            */}
 
           <div className="scene-help">
@@ -1336,15 +1583,14 @@ function App() {
             </span>
 
             <span>
-              Hover to
-              identify
+              Hover to identify
             </span>
           </div>
 
           {/*
-           * ----------------------------------------------------
+           * ======================================
            * GLOBAL ALARM
-           * ----------------------------------------------------
+           * ======================================
            */}
 
           {monitorAlarm && (
@@ -1369,9 +1615,9 @@ function App() {
           )}
 
           {/*
-           * ----------------------------------------------------
-           * END NODE
-           * ----------------------------------------------------
+           * ======================================
+           * DEBRIEF PLACEHOLDER
+           * ======================================
            */}
 
           {currentNode.type ===
@@ -1382,8 +1628,7 @@ function App() {
               </span>
 
               <h2>
-                Scenario
-                complete
+                Scenario complete
               </h2>
 
               <p>
@@ -1420,9 +1665,41 @@ function App() {
       </section>
 
       {/*
-       * --------------------------------------------------------
+       * ========================================================
+       * EHR
+       * ========================================================
+       */}
+
+      {ehrOpen && (
+        <EHRPanel
+          config={
+            scenario.ehr_config
+          }
+          vitals={
+            simulatorState.vitals
+          }
+          values={
+            ehrValues
+          }
+          requiredFields={
+            requiredEhrFields
+          }
+          onFieldChange={
+            handleEhrFieldChange
+          }
+          onClose={() =>
+            setEhrOpen(false)
+          }
+          onContinue={
+            handleEhrContinue
+          }
+        />
+      )}
+
+      {/*
+       * ========================================================
        * TOAST
-       * --------------------------------------------------------
+       * ========================================================
        */}
 
       {toast && (
@@ -1440,18 +1717,16 @@ function App() {
       )}
 
       {/*
-       * --------------------------------------------------------
+       * ========================================================
        * HELP
-       * --------------------------------------------------------
+       * ========================================================
        */}
 
       {helpOpen && (
         <div
           className="modal-backdrop"
           onMouseDown={() =>
-            setHelpOpen(
-              false,
-            )
+            setHelpOpen(false)
           }
         >
           <section
@@ -1483,8 +1758,8 @@ function App() {
             </span>
 
             <h2 id="help-title">
-              Interacting
-              with the ICU
+              Interacting with
+              the ICU
             </h2>
 
             <p>
@@ -1537,15 +1812,14 @@ function App() {
 
               <div>
                 <strong>
-                  Make a
-                  decision
+                  Documentation
                 </strong>
 
                 <span>
-                  Click an object
-                  and choose the
-                  available
-                  action.
+                  Use the EHR
+                  terminal when
+                  documentation
+                  is required.
                 </span>
               </div>
             </div>
@@ -1559,8 +1833,7 @@ function App() {
                 )
               }
             >
-              Return to
-              simulation
+              Return to simulation
             </button>
           </section>
         </div>
