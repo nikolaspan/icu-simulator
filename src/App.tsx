@@ -8,6 +8,7 @@ import {
 
 import ICUScene from './components/ICUScene'
 import EHRPanel from './components/EHRPanel'
+import Debrief from './components/Debrief'
 
 import {
   advanceMessage,
@@ -20,7 +21,17 @@ import {
   passGate,
   selectDecision,
   type EHRFormValues,
+  type EngineResult,
 } from './engine/scenarioEngine'
+
+import {
+  logEhrSubmit,
+  logHotspotInteraction,
+  logNodeEnter,
+  logOptionSelected,
+  logVitalsChange,
+  type LogEntry,
+} from './engine/logger'
 
 import {
   loadDefaultScenario,
@@ -29,17 +40,12 @@ import {
 import type {
   GateNode,
   HotspotId,
+  LogEventType,
   Scenario,
   SimulatorState,
 } from './engine/types'
 
 import './App.css'
-
-/*
- * ============================================================
- * HOTSPOT UI INFORMATION
- * ============================================================
- */
 
 interface HotspotInfo {
   title: string
@@ -87,12 +93,6 @@ const hotspotInfo: Record<
   },
 }
 
-/*
- * ============================================================
- * TIME FORMAT
- * ============================================================
- */
-
 function formatTime(
   totalSeconds: number,
 ) {
@@ -117,44 +117,41 @@ function formatTime(
   )}`
 }
 
-/*
- * ============================================================
- * GATE REQUIRED FIELD PATHS
- * ============================================================
- *
- * Example:
- *
- * assessment_form.observation
- * intervention_form.fiO2_setting
- */
-
 function getGateRequiredFields(
   gate: GateNode,
 ): string[] {
-  return (
-    gate.gate_requirements
-      .required_forms
-      .flatMap(
-        (requiredForm) =>
-          requiredForm.fields.map(
-            (field) =>
-              `${requiredForm.form_id}.${field}`,
-          ),
-      )
-  )
+  return gate.gate_requirements
+    .required_forms
+    .flatMap(
+      (requiredForm) =>
+        requiredForm.fields.map(
+          (field) =>
+            `${requiredForm.form_id}.${field}`,
+        ),
+    )
 }
 
 /*
- * ============================================================
- * APP
- * ============================================================
+ * Respect the logging configuration
+ * inside scenario.json.
  */
+function shouldLog(
+  scenario: Scenario,
+  eventType: LogEventType,
+) {
+  return (
+    scenario.logging.enabled &&
+    scenario.logging
+      .log_events
+      .includes(eventType)
+  )
+}
 
 function App() {
   /*
-   * ----------------------------------------------------------
-   * Scenario state
-   * ----------------------------------------------------------
+   * ==========================================================
+   * SCENARIO STATE
+   * ==========================================================
    */
 
   const [
@@ -177,9 +174,22 @@ function App() {
     >(null)
 
   /*
-   * ----------------------------------------------------------
-   * Interface state
-   * ----------------------------------------------------------
+   * ==========================================================
+   * SESSION LOG
+   * ==========================================================
+   */
+
+  const [
+    logs,
+    setLogs,
+  ] = useState<LogEntry[]>(
+    [],
+  )
+
+  /*
+   * ==========================================================
+   * INTERFACE STATE
+   * ==========================================================
    */
 
   const [
@@ -235,9 +245,9 @@ function App() {
   >(null)
 
   /*
-   * ============================================================
-   * LOAD SCENARIO
-   * ============================================================
+   * ==========================================================
+   * LOAD / RESET SCENARIO
+   * ==========================================================
    */
 
   const initializeScenario =
@@ -263,6 +273,25 @@ function App() {
 
         simulatorStateRef.current =
           initialState
+
+        /*
+         * The first event of every
+         * session is entering n1.
+         */
+        if (
+          shouldLog(
+            loadedScenario,
+            'NODE_ENTER',
+          )
+        ) {
+          setLogs([
+            logNodeEnter(
+              initialState,
+            ),
+          ])
+        } else {
+          setLogs([])
+        }
 
         setSelectedHotspot(
           null,
@@ -302,19 +331,15 @@ function App() {
     void initializeScenario()
   }, [initializeScenario])
 
-  /*
-   * Keep the ref synchronized.
-   */
-
   useEffect(() => {
     simulatorStateRef.current =
       simulatorState
   }, [simulatorState])
 
   /*
-   * ============================================================
+   * ==========================================================
    * CURRENT NODE
-   * ============================================================
+   * ==========================================================
    */
 
   const currentNodeId =
@@ -341,9 +366,9 @@ function App() {
     ])
 
   /*
-   * ============================================================
-   * REQUIRED EHR FIELDS
-   * ============================================================
+   * ==========================================================
+   * EHR GATE STATE
+   * ==========================================================
    */
 
   const requiredEhrFields =
@@ -379,9 +404,71 @@ function App() {
     ])
 
   /*
-   * ============================================================
-   * SCENARIO CLOCK
-   * ============================================================
+   * ==========================================================
+   * COMMON ENGINE RESULT LOGGING
+   * ==========================================================
+   *
+   * Used after decisions/messages where
+   * the engine changes state.
+   */
+
+  function collectEngineLogs(
+    previousState: SimulatorState,
+    result: EngineResult,
+  ): LogEntry[] {
+    if (!scenario) {
+      return []
+    }
+
+    const newLogs:
+      LogEntry[] = []
+
+    /*
+     * Record changed vitals.
+     */
+    if (
+      result.vitalsChanged &&
+      shouldLog(
+        scenario,
+        'VITALS_CHANGE',
+      )
+    ) {
+      newLogs.push(
+        logVitalsChange(
+          previousState,
+          previousState.vitals,
+          result.state.vitals,
+        ),
+      )
+    }
+
+    /*
+     * Record entering the next node.
+     */
+    if (
+      result.state
+        .current_node_id !==
+        previousState
+          .current_node_id &&
+      shouldLog(
+        scenario,
+        'NODE_ENTER',
+      )
+    ) {
+      newLogs.push(
+        logNodeEnter(
+          result.state,
+        ),
+      )
+    }
+
+    return newLogs
+  }
+
+  /*
+   * ==========================================================
+   * CLOCK
+   * ==========================================================
    */
 
   const scenarioCompleted =
@@ -420,9 +507,9 @@ function App() {
   }, [scenarioCompleted])
 
   /*
-   * ============================================================
+   * ==========================================================
    * DECISION TIMEOUT
-   * ============================================================
+   * ==========================================================
    */
 
   const timeoutSeconds =
@@ -478,11 +565,13 @@ function App() {
               )
 
               const currentState =
-                simulatorStateRef.current
+                simulatorStateRef
+                  .current
 
               if (
                 !currentState ||
-                currentState.current_node_id !==
+                currentState
+                  .current_node_id !==
                   nodeId
               ) {
                 return null
@@ -493,6 +582,54 @@ function App() {
                   scenario,
                   currentState,
                 )
+
+              const timeoutLogs:
+                LogEntry[] = []
+
+              if (
+                result.vitalsChanged &&
+                shouldLog(
+                  scenario,
+                  'VITALS_CHANGE',
+                )
+              ) {
+                timeoutLogs.push(
+                  logVitalsChange(
+                    currentState,
+                    currentState.vitals,
+                    result.state.vitals,
+                  ),
+                )
+              }
+
+              if (
+                result.state
+                  .current_node_id !==
+                  currentState
+                    .current_node_id &&
+                shouldLog(
+                  scenario,
+                  'NODE_ENTER',
+                )
+              ) {
+                timeoutLogs.push(
+                  logNodeEnter(
+                    result.state,
+                  ),
+                )
+              }
+
+              if (
+                timeoutLogs.length >
+                0
+              ) {
+                setLogs(
+                  (current) => [
+                    ...current,
+                    ...timeoutLogs,
+                  ],
+                )
+              }
 
               simulatorStateRef.current =
                 result.state
@@ -531,9 +668,9 @@ function App() {
   ])
 
   /*
-   * ============================================================
-   * TOAST
-   * ============================================================
+   * ==========================================================
+   * TOAST DISMISS
+   * ==========================================================
    */
 
   useEffect(() => {
@@ -556,9 +693,9 @@ function App() {
   }, [toast])
 
   /*
-   * ============================================================
+   * ==========================================================
    * ESCAPE KEY
-   * ============================================================
+   * ==========================================================
    */
 
   useEffect(() => {
@@ -574,11 +711,13 @@ function App() {
 
       if (ehrOpen) {
         setEhrOpen(false)
+
         return
       }
 
       if (helpOpen) {
         setHelpOpen(false)
+
         return
       }
 
@@ -603,9 +742,9 @@ function App() {
   ])
 
   /*
-   * ============================================================
+   * ==========================================================
    * GLOBAL RULES
-   * ============================================================
+   * ==========================================================
    */
 
   const activeGlobalEffects =
@@ -629,9 +768,9 @@ function App() {
     )
 
   /*
-   * ============================================================
+   * ==========================================================
    * HOTSPOT INTERACTION
-   * ============================================================
+   * ==========================================================
    */
 
   const handleHotspotClick =
@@ -640,11 +779,38 @@ function App() {
         hotspot:
           HotspotId,
       ) => {
-        /*
-         * EHR is a real application screen,
-         * so open it directly when selected.
-         */
+        const state =
+          simulatorStateRef
+            .current
 
+        /*
+         * Record every interaction
+         * with a 3D hotspot.
+         */
+        if (
+          scenario &&
+          state &&
+          shouldLog(
+            scenario,
+            'HOTSPOT_INTERACTION',
+          )
+        ) {
+          setLogs(
+            (current) => [
+              ...current,
+
+              logHotspotInteraction(
+                state,
+                hotspot,
+              ),
+            ],
+          )
+        }
+
+        /*
+         * EHR opens directly as a
+         * full application panel.
+         */
         if (
           hotspot ===
           'hs_ehr'
@@ -662,7 +828,7 @@ function App() {
           hotspot,
         )
       },
-      [],
+      [scenario],
     )
 
   const handleHotspotHover =
@@ -680,9 +846,9 @@ function App() {
     )
 
   /*
-   * ============================================================
+   * ==========================================================
    * MESSAGE NODE
-   * ============================================================
+   * ==========================================================
    */
 
   function handleAdvanceMessage() {
@@ -695,11 +861,31 @@ function App() {
       return
     }
 
+    const previousState =
+      simulatorState
+
     const result =
       advanceMessage(
         scenario,
-        simulatorState,
+        previousState,
       )
+
+    const engineLogs =
+      collectEngineLogs(
+        previousState,
+        result,
+      )
+
+    if (
+      engineLogs.length > 0
+    ) {
+      setLogs(
+        (current) => [
+          ...current,
+          ...engineLogs,
+        ],
+      )
+    }
 
     simulatorStateRef.current =
       result.state
@@ -714,9 +900,9 @@ function App() {
   }
 
   /*
-   * ============================================================
+   * ==========================================================
    * DECISION
-   * ============================================================
+   * ==========================================================
    */
 
   function handleDecision(
@@ -731,12 +917,66 @@ function App() {
       return
     }
 
+    const option =
+      currentNode.options.find(
+        (item) =>
+          item.id === optionId,
+      )
+
+    if (!option) {
+      return
+    }
+
+    const previousState =
+      simulatorState
+
+    const newLogs:
+      LogEntry[] = []
+
+    /*
+     * Log the user's actual choice
+     * before changing nodes.
+     */
+    if (
+      shouldLog(
+        scenario,
+        'OPTION_SELECTED',
+      )
+    ) {
+      newLogs.push(
+        logOptionSelected(
+          previousState,
+          option.id,
+          option.label,
+          option.target_hotspot,
+        ),
+      )
+    }
+
     const result =
       selectDecision(
         scenario,
-        simulatorState,
+        previousState,
         optionId,
       )
+
+    newLogs.push(
+      ...collectEngineLogs(
+        previousState,
+        result,
+      ),
+    )
+
+    if (
+      newLogs.length > 0
+    ) {
+      setLogs(
+        (current) => [
+          ...current,
+          ...newLogs,
+        ],
+      )
+    }
 
     simulatorStateRef.current =
       result.state
@@ -757,9 +997,9 @@ function App() {
   }
 
   /*
-   * ============================================================
+   * ==========================================================
    * EHR FIELD CHANGE
-   * ============================================================
+   * ==========================================================
    */
 
   function handleEhrFieldChange(
@@ -783,9 +1023,9 @@ function App() {
   }
 
   /*
-   * ============================================================
-   * SAVE EHR / PASS GATE
-   * ============================================================
+   * ==========================================================
+   * EHR SAVE / GATE
+   * ==========================================================
    */
 
   function handleEhrContinue() {
@@ -797,14 +1037,32 @@ function App() {
     }
 
     /*
-     * Outside a gate, EHR remains readable/editable
-     * but there is no scenario progression to perform.
+     * EHR may also be opened outside
+     * a gate.
      */
-
     if (
       currentNode?.type !==
       'gate'
     ) {
+      if (
+        shouldLog(
+          scenario,
+          'EHR_SUBMIT',
+        )
+      ) {
+        setLogs(
+          (current) => [
+            ...current,
+
+            logEhrSubmit(
+              simulatorState,
+              ehrValues,
+              true,
+            ),
+          ],
+        )
+      }
+
       setToast(
         'EHR information saved.',
       )
@@ -812,16 +1070,76 @@ function App() {
       return
     }
 
-    const previousNodeId =
+    const previousState =
       simulatorState
-        .current_node_id
 
     const result =
       passGate(
         scenario,
-        simulatorState,
+        previousState,
         ehrValues,
       )
+
+    const gatePassed =
+      result.state
+        .current_node_id !==
+      previousState
+        .current_node_id
+
+    const newLogs:
+      LogEntry[] = []
+
+    /*
+     * Log every save attempt,
+     * including unsuccessful ones.
+     *
+     * This is useful in the debrief
+     * because we can identify errors
+     * and repeated attempts.
+     */
+    if (
+      shouldLog(
+        scenario,
+        'EHR_SUBMIT',
+      )
+    ) {
+      newLogs.push(
+        logEhrSubmit(
+          previousState,
+          ehrValues,
+          gatePassed,
+        ),
+      )
+    }
+
+    /*
+     * If the gate passed we entered
+     * another scenario node.
+     */
+    if (
+      gatePassed &&
+      shouldLog(
+        scenario,
+        'NODE_ENTER',
+      )
+    ) {
+      newLogs.push(
+        logNodeEnter(
+          result.state,
+        ),
+      )
+    }
+
+    if (
+      newLogs.length > 0
+    ) {
+      setLogs(
+        (current) => [
+          ...current,
+          ...newLogs,
+        ],
+      )
+    }
 
     simulatorStateRef.current =
       result.state
@@ -837,17 +1155,11 @@ function App() {
     }
 
     /*
-     * If the node changed, the gate passed.
-     *
-     * Close the EHR so the user immediately sees
-     * the next scenario event.
+     * Successful gate:
+     * return the user to the ICU.
      */
 
-    if (
-      result.state
-        .current_node_id !==
-      previousNodeId
-    ) {
+    if (gatePassed) {
       setEhrOpen(false)
 
       setSelectedHotspot(
@@ -857,9 +1169,9 @@ function App() {
   }
 
   /*
-   * ============================================================
+   * ==========================================================
    * RESET
-   * ============================================================
+   * ==========================================================
    */
 
   function handleReset() {
@@ -891,15 +1203,39 @@ function App() {
 
     setEhrValues({})
 
+    setTimeoutRemaining(
+      null,
+    )
+
+    /*
+     * Reset creates an entirely new
+     * session log.
+     */
+
+    if (
+      shouldLog(
+        scenario,
+        'NODE_ENTER',
+      )
+    ) {
+      setLogs([
+        logNodeEnter(
+          initialState,
+        ),
+      ])
+    } else {
+      setLogs([])
+    }
+
     setToast(
       'Scenario reset.',
     )
   }
 
   /*
-   * ============================================================
+   * ==========================================================
    * HOTSPOT INFORMATION
-   * ============================================================
+   * ==========================================================
    */
 
   const selectedInfo =
@@ -928,9 +1264,9 @@ function App() {
       : []
 
   /*
-   * ============================================================
-   * LOADING / ERROR
-   * ============================================================
+   * ==========================================================
+   * LOADING SCREEN
+   * ==========================================================
    */
 
   if (
@@ -982,9 +1318,9 @@ function App() {
   }
 
   /*
-   * ============================================================
-   * MAIN UI
-   * ============================================================
+   * ==========================================================
+   * MAIN APPLICATION
+   * ==========================================================
    */
 
   return (
@@ -1070,9 +1406,7 @@ function App() {
             type="button"
             className="help-button"
             onClick={() =>
-              setHelpOpen(
-                true,
-              )
+              setHelpOpen(true)
             }
             aria-label="Open simulator help"
           >
@@ -1226,7 +1560,7 @@ function App() {
 
           {/*
            * ======================================
-           * CURRENT OBJECTIVE
+           * OBJECTIVE
            * ======================================
            */}
 
@@ -1373,7 +1707,7 @@ function App() {
 
           {/*
            * ======================================
-           * SELECTED 3D HOTSPOT
+           * SELECTED OBJECT
            * ======================================
            */}
 
@@ -1514,8 +1848,7 @@ function App() {
                 'gate' ? (
                 <div className="clinical-note danger-note">
                   <span>
-                    Scenario
-                    locked
+                    Scenario locked
                   </span>
 
                   <strong>
@@ -1553,17 +1886,10 @@ function App() {
                 </strong>
 
                 <span>
-                  Click to
-                  interact
+                  Click to interact
                 </span>
               </div>
             )}
-
-          {/*
-           * ======================================
-           * SCENE HELP
-           * ======================================
-           */}
 
           <div className="scene-help">
             <span>
@@ -1587,12 +1913,6 @@ function App() {
             </span>
           </div>
 
-          {/*
-           * ======================================
-           * GLOBAL ALARM
-           * ======================================
-           */}
-
           {monitorAlarm && (
             <div className="alarm-banner">
               <div className="alarm-icon">
@@ -1601,65 +1921,15 @@ function App() {
 
               <div>
                 <strong>
-                  SpO₂ alarm
-                  active
+                  SpO₂ alarm active
                 </strong>
 
                 <span>
-                  Oxygen
-                  saturation is
-                  below 90%.
+                  Oxygen saturation
+                  is below 90%.
                 </span>
               </div>
             </div>
-          )}
-
-          {/*
-           * ======================================
-           * DEBRIEF PLACEHOLDER
-           * ======================================
-           */}
-
-          {currentNode.type ===
-            'end' && (
-            <section className="scenario-complete-panel">
-              <span className="eyebrow">
-                Debrief
-              </span>
-
-              <h2>
-                Scenario complete
-              </h2>
-
-              <p>
-                {
-                  currentNode.text
-                }
-              </p>
-
-              <div className="completion-score">
-                <span>
-                  Final score
-                </span>
-
-                <strong>
-                  {
-                    simulatorState.score
-                  }
-                </strong>
-              </div>
-
-              <button
-                type="button"
-                className="primary-action"
-                onClick={
-                  handleReset
-                }
-              >
-                Restart scenario
-                <span>↻</span>
-              </button>
-            </section>
           )}
         </div>
       </section>
@@ -1692,6 +1962,30 @@ function App() {
           }
           onContinue={
             handleEhrContinue
+          }
+        />
+      )}
+
+      {/*
+       * ========================================================
+       * FINAL DEBRIEF
+       * ========================================================
+       */}
+
+      {currentNode.type ===
+        'end' && (
+        <Debrief
+          scenario={
+            scenario
+          }
+          state={
+            simulatorState
+          }
+          logs={
+            logs
+          }
+          onRestart={
+            handleReset
           }
         />
       )}
@@ -1779,8 +2073,7 @@ function App() {
 
                 <span>
                   Click and drag
-                  inside the
-                  room.
+                  inside the room.
                 </span>
               </div>
 
@@ -1797,8 +2090,7 @@ function App() {
 
               <div>
                 <strong>
-                  Identify
-                  objects
+                  Identify objects
                 </strong>
 
                 <span>

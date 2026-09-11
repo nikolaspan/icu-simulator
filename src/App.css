@@ -2389,7 +2389,794 @@
     width: calc(100% - 20px);
   }
 }
+/*
+ * ==========================================
+ * DEBRIEF BACKDROP
+ * ==========================================
+ */
 
+.debrief-backdrop {
+  position: fixed;
+  z-index: 350;
+
+  inset: 0;
+
+  display: grid;
+  place-items: center;
+
+  padding: 28px;
+
+  background:
+    rgba(12, 27, 33, 0.62);
+
+  backdrop-filter: blur(7px);
+}
+
+/*
+ * ==========================================
+ * DEBRIEF PANEL
+ * ==========================================
+ */
+
+.debrief-panel {
+  width: min(
+    1120px,
+    100%
+  );
+
+  height: min(
+    760px,
+    calc(100vh - 56px)
+  );
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  border: 1px solid #cbdadd;
+  border-radius: 18px;
+
+  background: #f7fafb;
+
+  box-shadow:
+    0 32px 90px
+      rgba(7, 23, 29, 0.36);
+
+  animation:
+    debrief-enter 200ms ease-out;
+}
+
+@keyframes debrief-enter {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(10px)
+      scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+/*
+ * ==========================================
+ * DEBRIEF HEADER
+ * ==========================================
+ */
+
+.debrief-header {
+  min-height: 96px;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 20px 23px;
+
+  border-bottom: 1px solid #dce5e7;
+
+  background: white;
+}
+
+.debrief-header h2 {
+  margin: 0;
+
+  color: #1d3138;
+
+  font-size: 22px;
+}
+
+.debrief-header p {
+  margin: 5px 0 0;
+
+  color: #77898f;
+
+  font-size: 11px;
+}
+
+.debrief-complete-badge {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 7px 10px;
+
+  border-radius: 999px;
+
+  background: #e7f6ed;
+  color: #3c7758;
+
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.debrief-complete-badge span {
+  width: 19px;
+  height: 19px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: #4c9a70;
+  color: white;
+
+  font-size: 9px;
+}
+
+/*
+ * ==========================================
+ * DEBRIEF CONTENT
+ * ==========================================
+ */
+
+.debrief-content {
+  flex: 1;
+
+  min-height: 0;
+
+  overflow-y: auto;
+
+  padding: 20px;
+}
+
+/*
+ * ==========================================
+ * SUMMARY CARDS
+ * ==========================================
+ */
+
+.debrief-summary-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  gap: 10px;
+
+  margin-bottom: 16px;
+}
+
+.debrief-summary-card {
+  min-height: 112px;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 14px;
+
+  border: 1px solid #dce6e8;
+  border-radius: 12px;
+
+  background: white;
+}
+
+.debrief-summary-card > span {
+  color: #71858b;
+
+  font-size: 9px;
+  font-weight: 720;
+
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.debrief-summary-card strong {
+  margin-top: 9px;
+
+  color: #273d44;
+
+  font-size: 28px;
+
+  letter-spacing: -0.03em;
+}
+
+.debrief-summary-card small {
+  margin-top: auto;
+
+  color: #87979c;
+
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.debrief-score-card {
+  border-color: #c6dfe3;
+
+  background:
+    linear-gradient(
+      145deg,
+      #f5fbfc,
+      #ffffff
+    );
+}
+
+.debrief-score-card strong {
+  color: #176f80;
+}
+
+.debrief-summary-card small.positive {
+  color: #4c8a67;
+}
+
+.debrief-summary-card small.negative {
+  color: #b34e54;
+}
+
+/*
+ * ==========================================
+ * MAIN DEBRIEF COLUMNS
+ * ==========================================
+ */
+
+.debrief-columns {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1.35fr)
+    minmax(320px, 0.85fr);
+
+  gap: 14px;
+}
+
+.debrief-side-column {
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+}
+
+.debrief-section {
+  padding: 16px;
+
+  border: 1px solid #dce6e8;
+  border-radius: 13px;
+
+  background: white;
+}
+
+.debrief-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 14px;
+
+  margin-bottom: 14px;
+}
+
+.debrief-section-heading h3 {
+  margin: 0;
+
+  color: #2d4249;
+
+  font-size: 15px;
+}
+
+.debrief-count {
+  padding: 5px 8px;
+
+  border-radius: 999px;
+
+  background: #edf4f5;
+  color: #667d84;
+
+  font-size: 8px;
+  font-weight: 700;
+}
+
+/*
+ * ==========================================
+ * DECISION TIMELINE
+ * ==========================================
+ */
+
+.decision-timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-item {
+  display: grid;
+
+  grid-template-columns:
+    34px 1fr;
+
+  gap: 10px;
+}
+
+.timeline-marker-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timeline-marker {
+  width: 25px;
+  height: 25px;
+
+  flex-shrink: 0;
+
+  display: grid;
+  place-items: center;
+
+  border: 1px solid #cddcdf;
+  border-radius: 50%;
+
+  background: #f5f8f9;
+  color: #64777e;
+
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.timeline-marker.action {
+  border-color: #b8d7dc;
+
+  background: #edf8fa;
+  color: #176f80;
+}
+
+.timeline-marker.gate {
+  border-color: #e3cb97;
+
+  background: #fff8e8;
+  color: #9b7528;
+}
+
+.timeline-marker.warning {
+  border-color: #e4b6b9;
+
+  background: #fff1f2;
+  color: #b4474e;
+}
+
+.timeline-marker.complete {
+  border-color: #b8ddc8;
+
+  background: #eaf7ef;
+  color: #3d815d;
+}
+
+.timeline-line {
+  width: 1px;
+  min-height: 38px;
+
+  flex: 1;
+
+  background: #dce5e7;
+}
+
+.timeline-content {
+  padding-bottom: 14px;
+}
+
+.timeline-content strong {
+  display: block;
+
+  color: #3c5057;
+
+  font-size: 10px;
+}
+
+.timeline-content p {
+  margin: 4px 0 0;
+
+  color: #7b8c91;
+
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+/*
+ * ==========================================
+ * DOCUMENTATION CHECKLIST
+ * ==========================================
+ */
+
+.debrief-checklist {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.debrief-check-item {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 9px;
+
+  padding: 10px;
+
+  border: 1px solid #dfe7e9;
+  border-radius: 9px;
+
+  background: #f9fbfb;
+}
+
+.debrief-check-item.complete {
+  border-color: #cee5d8;
+
+  background: #f5fbf7;
+}
+
+.debrief-check-item.missed {
+  border-color: #efccce;
+
+  background: #fff7f7;
+}
+
+.debrief-check-icon {
+  width: 23px;
+  height: 23px;
+
+  flex-shrink: 0;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: #dce8ea;
+  color: #597077;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.debrief-check-item.complete
+.debrief-check-icon {
+  background: #d8efe2;
+  color: #3c805c;
+}
+
+.debrief-check-item.missed
+.debrief-check-icon {
+  background: #f4dadd;
+  color: #a9464c;
+}
+
+.debrief-check-item strong {
+  display: block;
+
+  color: #42565d;
+
+  font-size: 9px;
+}
+
+.debrief-check-item p {
+  margin: 3px 0 0;
+
+  color: #7d8e93;
+
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.debrief-empty {
+  padding: 10px;
+
+  border: 1px dashed #d5e0e2;
+  border-radius: 9px;
+
+  color: #839399;
+
+  font-size: 9px;
+
+  text-align: center;
+}
+
+/*
+ * ==========================================
+ * FINAL VITALS
+ * ==========================================
+ */
+
+.debrief-vitals {
+  display: grid;
+
+  grid-template-columns:
+    repeat(5, 1fr);
+
+  gap: 6px;
+}
+
+.debrief-vitals > div {
+  min-width: 0;
+
+  padding: 9px;
+
+  border: 1px solid #e0e8ea;
+  border-radius: 8px;
+
+  background: #f8fafb;
+}
+
+.debrief-vitals span {
+  display: block;
+
+  color: #7c8d92;
+
+  font-size: 7px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+}
+
+.debrief-vitals strong {
+  display: inline-block;
+
+  margin-top: 5px;
+
+  color: #30464d;
+
+  font-size: 13px;
+}
+
+.debrief-vitals small {
+  margin-left: 2px;
+
+  color: #84969b;
+
+  font-size: 7px;
+}
+
+/*
+ * ==========================================
+ * EVENT SUMMARY
+ * ==========================================
+ */
+
+.debrief-event-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 7px;
+}
+
+.debrief-event-grid > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+
+  padding: 9px;
+
+  border: 1px solid #e0e8ea;
+  border-radius: 8px;
+
+  background: #f8fafb;
+}
+
+.debrief-event-grid span {
+  color: #74878d;
+
+  font-size: 8px;
+}
+
+.debrief-event-grid strong {
+  color: #2e464d;
+
+  font-size: 13px;
+}
+
+/*
+ * ==========================================
+ * DEBRIEF FOOTER
+ * ==========================================
+ */
+
+.debrief-footer {
+  min-height: 78px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 18px;
+
+  padding: 14px 20px;
+
+  border-top: 1px solid #dce5e7;
+
+  background: white;
+}
+
+.debrief-footer > div:first-child {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.debrief-footer strong {
+  color: #41565d;
+
+  font-size: 10px;
+}
+
+.debrief-footer span {
+  color: #839399;
+
+  font-size: 8px;
+}
+
+.debrief-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+}
+
+.debrief-secondary-button {
+  min-height: 40px;
+
+  padding: 0 13px;
+
+  border: 1px solid #d0dde0;
+  border-radius: 9px;
+
+  background: white;
+  color: #53686f;
+
+  cursor: pointer;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  transition:
+    background 130ms ease,
+    border-color 130ms ease,
+    transform 130ms ease;
+}
+
+.debrief-secondary-button:hover {
+  background: #f1f6f7;
+
+  border-color: #b4ccd1;
+
+  transform: translateY(-1px);
+}
+
+.debrief-restart-button {
+  width: auto;
+  min-width: 150px;
+}
+
+/*
+ * ==========================================
+ * DEBRIEF RESPONSIVE
+ * ==========================================
+ */
+
+@media (max-width: 900px) {
+  .debrief-backdrop {
+    padding: 14px;
+  }
+
+  .debrief-panel {
+    height:
+      calc(100vh - 28px);
+  }
+
+  .debrief-summary-grid {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+  .debrief-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .debrief-vitals {
+    grid-template-columns:
+      repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .debrief-backdrop {
+    padding: 0;
+  }
+
+  .debrief-panel {
+    width: 100%;
+    height: 100%;
+
+    border-radius: 0;
+  }
+
+  .debrief-header {
+    min-height: 82px;
+
+    padding: 14px;
+  }
+
+  .debrief-header h2 {
+    font-size: 18px;
+  }
+
+  .debrief-complete-badge {
+    display: none;
+  }
+
+  .debrief-content {
+    padding: 12px;
+  }
+
+  .debrief-summary-grid {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+  .debrief-summary-card {
+    min-height: 95px;
+  }
+
+  .debrief-summary-card strong {
+    font-size: 22px;
+  }
+
+  .debrief-vitals {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+
+  .debrief-footer {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+  .debrief-actions {
+    width: 100%;
+
+    flex-wrap: wrap;
+  }
+
+  .debrief-secondary-button {
+    flex: 1;
+  }
+
+  .debrief-restart-button {
+    width: 100%;
+  }
+}
 /*
  * ==========================================
  * EHR RESPONSIVE — MOBILE
