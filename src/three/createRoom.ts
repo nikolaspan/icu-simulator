@@ -1,0 +1,25 @@
+import * as THREE from 'three'
+import type { Primitives } from './primitives'
+export function createRoom(scene: THREE.Scene, { createBox, createCylinder }: Primitives) {
+  const floor = createBox(13, 0.12, 10, '#becdd1')
+  floor.position.set(0, -0.06, 0)
+  scene.add(floor)
+  const backWall = createBox(13, 5.2, 0.14, '#e7f0f2')
+  backWall.position.set(0, 2.6, -5)
+  scene.add(backWall)
+  const leftWall = createBox(0.14, 5.2, 10, '#dde9ec')
+  leftWall.position.set(-6.5, 2.6, 0)
+  scene.add(leftWall)
+  const ceilingPanel = createBox(3.2, 0.06, 1.1, '#f5ffff')
+  ceilingPanel.position.set(-0.5, 4.9, -0.8)
+  scene.add(ceilingPanel)
+  const wallRail = createBox(7, 0.16, 0.12, '#9babb0')
+  wallRail.position.set(0, 2.2, -4.85)
+  scene.add(wallRail)
+  const ivPole = createCylinder(0.035, 2.6, '#7d9297')
+  ivPole.position.set(-1.8, 1.3, -1)
+  scene.add(ivPole)
+  const ivTop = createBox(0.8, 0.05, 0.05, '#7d9297')
+  ivTop.position.set(-1.8, 2.58, -1)
+  scene.add(ivTop)
+}
