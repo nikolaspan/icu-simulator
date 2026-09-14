@@ -35,18 +35,31 @@ declare module 'three' {
     updateProjectionMatrix(): void
   }
   export class BufferGeometry { setFromPoints(points: Vector3[]): this; dispose(): void }
+  export class PlaneGeometry extends BufferGeometry { constructor(width: number, height: number) }
+  export class CatmullRomCurve3 { constructor(points: Vector3[]) }
+  export class TubeGeometry extends BufferGeometry { constructor(curve: CatmullRomCurve3, segments: number, radius: number, radialSegments: number, closed: boolean) }
   export class BoxGeometry extends BufferGeometry { constructor(width: number, height: number, depth: number) }
   export class CylinderGeometry extends BufferGeometry { constructor(top: number, bottom: number, height: number, segments: number) }
   export class SphereGeometry extends BufferGeometry { constructor(radius: number, width: number, height: number) }
   export class CapsuleGeometry extends BufferGeometry { constructor(radius: number, length: number, cap: number, radial: number) }
-  export class Material { dispose(): void }
+  export class Material { opacity: number; transparent: boolean; dispose(): void }
+  export class CanvasTexture {
+    constructor(canvas: HTMLCanvasElement)
+    colorSpace: string
+    needsUpdate: boolean
+    generateMipmaps: boolean
+    minFilter: number
+    dispose(): void
+  }
+  export class MeshBasicMaterial extends Material { constructor(options: { map: CanvasTexture; toneMapped?: boolean }) }
   export class MeshStandardMaterial extends Material {
     constructor(options: { color: string; roughness?: number; metalness?: number; emissive?: string; emissiveIntensity?: number })
     emissiveIntensity: number
     color: Color
     emissive: Color
   }
-  export class LineBasicMaterial extends Material { constructor(options: { color: string }) }
+  export class LineBasicMaterial extends Material { constructor(options: { color: string; transparent?: boolean; opacity?: number; depthWrite?: boolean }); color: Color }
+  export class Box3 { min: Vector3; max: Vector3; setFromObject(object: Object3D): this; expandByScalar(value: number): this }
   export class Mesh extends Object3D {
     constructor(geometry: BufferGeometry, material: Material | Material[])
     geometry: BufferGeometry
@@ -65,7 +78,7 @@ declare module 'three' {
   export class HemisphereLight extends Object3D { constructor(sky: string, ground: string, intensity: number) }
   export class DirectionalLight extends Object3D {
     constructor(color: string, intensity: number)
-    shadow: { mapSize: { set(width: number, height: number): void }; dispose(): void }
+    shadow: { mapSize: { set(width: number, height: number): void }; camera: { left: number; right: number; top: number; bottom: number; near: number; far: number; updateProjectionMatrix(): void }; bias: number; normalBias: number; dispose(): void }
   }
   export class PointLight extends Object3D { constructor(color: string, intensity: number, distance: number) }
   export interface Intersection { object: Object3D; distance: number }
@@ -73,18 +86,21 @@ declare module 'three' {
     setFromCamera(pointer: Vector2, camera: PerspectiveCamera): void
     intersectObjects(objects: Object3D[], recursive: boolean, target?: Intersection[]): Intersection[]
   }
-  export const PCFSoftShadowMap: number
+  export const PCFShadowMap: number
   export const SRGBColorSpace: string
+  export const LinearFilter: number
+  export const MOUSE: { ROTATE: number; DOLLY: number; PAN: number }
   export class WebGLRenderer {
     constructor(options: { antialias: boolean })
     domElement: HTMLCanvasElement
-    shadowMap: { enabled: boolean; type: number }
+    shadowMap: { enabled: boolean; type: number; autoUpdate: boolean; needsUpdate: boolean }
     outputColorSpace: string
     setPixelRatio(ratio: number): void
     setSize(width: number, height: number): void
     setAnimationLoop(callback: ((time: number) => void) | null): void
     render(scene: Scene, camera: PerspectiveCamera): void
     dispose(): void
+    forceContextLoss(): void
   }
 }
 declare module 'three/addons/controls/OrbitControls.js' {
@@ -100,6 +116,9 @@ declare module 'three/addons/controls/OrbitControls.js' {
     maxDistance: number
     minPolarAngle: number
     maxPolarAngle: number
+    minAzimuthAngle: number
+    maxAzimuthAngle: number
+    mouseButtons: { LEFT: number | null; MIDDLE: number | null; RIGHT: number | null }
     update(): boolean
     dispose(): void
   }

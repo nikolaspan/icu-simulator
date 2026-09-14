@@ -34,3 +34,14 @@
 .debrief-event-grid dd { font-weight: 700; }
 .debrief-footer { margin-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 18px 0; }
 .debrief-footer > p { font-size: 13px; }
+.debrief-outcome { display: flex; gap: 14px; align-items: center; margin-bottom: 20px; padding: 16px 20px; border: 1px solid #b4cdbf; border-radius: var(--radius); background: var(--success-bg); }
+.debrief-outcome > span { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; background: #d6eadd; color: var(--success); font-size: 18px; font-weight: 700; }
+.debrief-outcome strong { color: var(--success); }
+.debrief-outcome p { margin-top: 4px; font-size: 13px; }
+.debrief-outcome.outcome-danger { border-color: #dfabb1; background: var(--danger-bg); }
+.outcome-danger > span { background: #f2d8dc; color: var(--danger); }
+.outcome-danger strong { color: var(--danger); }
+.timeline-type { display: block; margin-bottom: 3px; font-size: 12px; font-weight: 650; color: var(--accent); }
+.timeline-item.action > div { padding: 10px 12px; margin-top: -5px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.event-details summary { cursor: pointer; font-weight: 650; min-height: 28px; }
+.event-details[open] summary { margin-bottom: 16px; }

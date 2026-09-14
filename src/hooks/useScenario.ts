@@ -80,7 +80,7 @@ export function useScenario() {
 
   function advance() {
     const current = currentSession()
-    if (!current || current.state.current_node_id !== node?.id || node.type !== 'message') return
+    if (!current || current.state.decision_path.length !== session?.state.decision_path.length || current.state.current_node_id !== node?.id || node.type !== 'message') return
     try {
       const result = advanceMessage(current.scenario, current.state)
       commit(applySessionResult(current, result))
@@ -89,7 +89,7 @@ export function useScenario() {
   }
   function decide(optionId: string) {
     const current = currentSession()
-    if (!current || current.state.current_node_id !== node?.id || node.type !== 'decision') return
+    if (!current || current.state.decision_path.length !== session?.state.decision_path.length || current.state.current_node_id !== node?.id || node.type !== 'decision') return
     try {
       const option = node.options.find(item => item.id === optionId)
       if (!option) throw new Error(`Missing option: ${optionId}`)
@@ -109,7 +109,9 @@ export function useScenario() {
   function changeField(formId: string, field: string, value: string) {
     const current = sessionRef.current
     if (!current) return
-    commit({ ...current, ehrValues: { ...current.ehrValues, [formId]: { ...current.ehrValues[formId], [field]: value } } })
+    const ehrAutofill = { ...current.ehrAutofill }
+    delete ehrAutofill[`${formId}.${field}`]
+    commit({ ...current, ehrAutofill, ehrValues: { ...current.ehrValues, [formId]: { ...current.ehrValues[formId], [field]: value } } })
   }
   function saveEHR(): boolean {
     const current = currentSession()

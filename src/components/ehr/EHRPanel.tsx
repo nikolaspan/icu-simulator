@@ -6,12 +6,16 @@ import Modal from '../common/Modal'
 import EHRNavigation from './EHRNavigation'
 import EHROverview from './EHROverview'
 import EHRForm from './EHRForm'
+import type { LogEntry } from '../../engine/logger'
 
 interface EHRPanelProps {
   config: EHRConfig
   values: EHRFormValues
+  autofill: Record<string, string>
   vitals: VitalSigns
   alarm: boolean
+  initialVitals: VitalSigns
+  logs: LogEntry[]
   requiredFields: string[]
   blockedMessage?: string
   timeoutRemaining: number | null
@@ -19,7 +23,7 @@ interface EHRPanelProps {
   onClose: () => void
   onContinue: () => boolean
 }
-export default function EHRPanel({ config, values, vitals, alarm, requiredFields, blockedMessage, timeoutRemaining, onFieldChange, onClose, onContinue }: EHRPanelProps) {
+export default function EHRPanel({ config, values, autofill, vitals, alarm, initialVitals, logs, requiredFields, blockedMessage, timeoutRemaining, onFieldChange, onClose, onContinue }: EHRPanelProps) {
   const [activeForm, setActiveForm] = useState<string | null>(null)
   const [attempted, setAttempted] = useState(false)
   const [focusTarget, setFocusTarget] = useState<{ path: string } | null>(null)
@@ -40,7 +44,7 @@ export default function EHRPanel({ config, values, vitals, alarm, requiredFields
   }
   return (
     <Modal titleId="ehr-title" className="ehr-panel" onClose={onClose}>
-      <header className="modal-header"><div><span className="eyebrow">Electronic Health Record</span><h2 id="ehr-title">Patient — Bed 01</h2><p>Review observations and document your actions.</p></div>
+      <header className="modal-header"><div><span className="eyebrow">Electronic Health Record</span><h2 id="ehr-title">Patient — Bed 01</h2><p>ICU · Simulation patient 01 · Current session</p></div>
         <button type="button" className="close-button" onClick={onClose} aria-label="Close electronic health record">×</button>
       </header>
       {timeoutRemaining !== null && <p className="ehr-timer" role="timer">Decision timer is running: {timeoutRemaining}s remaining.</p>}
@@ -48,17 +52,17 @@ export default function EHRPanel({ config, values, vitals, alarm, requiredFields
         <div className="ehr-body">
           <EHRNavigation config={config} activeForm={activeForm} required={requiredFields} missing={missing} onSelect={setActiveForm} />
           <div className="ehr-content">
-            {attempted && missing.length > 0 && <div className="ehr-error-summary" role="alert"><strong>Documentation is incomplete</strong><p>{blockedMessage ?? 'Complete the required entries to continue.'}</p><ul>{missing.map(path => {
+            {attempted && missing.length > 0 && <div className="ehr-error-summary" role="alert"><strong>{missing.length} required {missing.length === 1 ? 'field remains' : 'fields remain'}</strong><p>{blockedMessage ?? 'Complete the required entries to continue.'} Your entries have been kept.</p><ul>{missing.map(path => {
               const { formId, field } = splitFieldPath(path)
               return <li key={path}><button type="button" onClick={() => goToField(path)}>{config.forms[formId].title}: {getFieldLabel(field)}</button></li>
             })}</ul></div>}
-            {activeForm === null ? <EHROverview config={config} values={values} vitals={vitals} alarm={alarm} required={requiredFields} onGoToField={goToField} />
-              : <EHRForm formId={activeForm} config={config.forms[activeForm]} values={values} required={requiredFields} attempted={attempted} onChange={onFieldChange} />}
+            {activeForm === null ? <EHROverview config={config} values={values} vitals={vitals} alarm={alarm} initialVitals={initialVitals} logs={logs} required={requiredFields} onGoToField={goToField} />
+              : <EHRForm formId={activeForm} config={config.forms[activeForm]} values={values} required={requiredFields} attempted={attempted} autofill={autofill} onChange={onFieldChange} />}
           </div>
         </div>
         <footer className="modal-footer ehr-footer">
-          <div role="status"><strong className={missing.length ? 'required-status' : 'complete-status'}>{requiredFields.length ? (missing.length ? `${missing.length} required ${missing.length === 1 ? 'field' : 'fields'} incomplete` : 'All required fields complete') : 'Draft patient record'}</strong><span>{missing.length ? 'Complete each required section before continuing.' : 'Save your entries to return to the simulation.'}</span></div>
-          <div className="footer-actions"><button type="button" className="secondary-action" onClick={onClose}>Close</button><button type="submit" className="primary-action">{requiredFields.length ? 'Save & continue' : 'Save & return'}</button></div>
+          <div role="status"><strong className={missing.length ? 'required-status' : requiredFields.length ? 'complete-status' : ''}>{requiredFields.length ? (missing.length ? `${requiredFields.length - missing.length}/${requiredFields.length} complete · ${missing.length} required ${missing.length === 1 ? 'field' : 'fields'} incomplete` : '✓ All required fields complete') : 'Draft patient record'}</strong><span>{missing.length ? 'Progression is paused until required entries are saved.' : requiredFields.length ? 'Save & continue completes this gate and advances the scenario.' : 'Save records your notes; the current objective stays active.'}</span><small>Close keeps draft entries in this session without progressing.</small></div>
+          <div className="footer-actions"><button type="button" className="secondary-action" onClick={onClose}>Close</button><button type="submit" className={missing.length ? 'secondary-action' : 'primary-action'}>{requiredFields.length ? 'Save & continue' : 'Save & return'}</button></div>
         </footer>
       </form>
     </Modal>

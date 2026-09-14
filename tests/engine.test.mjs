@@ -197,3 +197,56 @@ test('vital changes only log changed values and EHR log snapshots remain immutab
   assert.equal(entry.details.forms.note.value, 'Text, with "quotes"\nand a newline')
   assert.ok(createLogCsv([entry]).includes('""'))
 })
+
+test('completed actions initialize known EHR values once and leave judgments manual', () => {
+  let session = choose(message(createSession(scenario, 0)), 'opt_assess')
+  assert.deepEqual(session.ehrValues, {})
+  session = choose(session, 'opt_increase_o2')
+  assert.equal(session.ehrValues.intervention_form.fiO2_setting, '100%')
+  assert.equal(session.ehrAutofill['intervention_form.fiO2_setting'], 'ventilator intervention')
+  assert.equal(session.ehrValues.assessment_form?.observation, undefined)
+  assert.equal(passGate(scenario, session.state, session.ehrValues).state.current_node_id, session.state.current_node_id)
+  session = save(session, { ...session.ehrValues, assessment_form: docs.assessment_form })
+  session = choose(message(session), 'opt_call_doc')
+  assert.equal(session.ehrValues.communication_log.recipient, 'On-duty physician')
+  assert.equal(session.ehrValues.communication_log.outcome, undefined)
+  assert.equal(session.ehrAutofill['communication_log.recipient'], 'physician call')
+  session = save(session, { ...session.ehrValues, communication_log: { ...session.ehrValues.communication_log, outcome: 'Reviewed' } })
+  assert.equal(session.state.score, 155)
+  assert.deepEqual(createSession(scenario, 0).ehrAutofill, {})
+})
+
+test('autofill preserves existing user values, including deliberate clearing after initialization', () => {
+  let session = choose(message(createSession(scenario, 0)), 'opt_assess')
+  session = { ...session, ehrValues: { intervention_form: { fiO2_setting: 'User-entered setting' } } }
+  session = choose(session, 'opt_increase_o2')
+  assert.equal(session.ehrValues.intervention_form.fiO2_setting, 'User-entered setting')
+  assert.deepEqual(session.ehrAutofill, {})
+  session = save(session, { intervention_form: { fiO2_setting: '' } })
+  session = updateSessionClock(session, 5000).session
+  assert.equal(session.ehrValues.intervention_form.fiO2_setting, '')
+  assert.equal(session.state.score, 130)
+  let skipped = choose(message(createSession(scenario, 0)), 'opt_assess')
+  skipped = choose(skipped, 'opt_do_nothing')
+  assert.deepEqual(skipped.ehrValues, {})
+})
+
+test('autofill metadata supports other forms and is validated against the scenario schema', () => {
+  const copy = structuredClone(scenario)
+  copy.ehr_config.forms.custom_record = { title: 'Device record', fields: ['setting'] }
+  copy.nodes[2].options[0].documentation_defaults = { 'custom_record.setting': { value: 'Known setting', source: 'completed device action' } }
+  validateScenario(copy)
+  let session = createSession(copy, 0)
+  session = applySessionResult(session, advanceMessage(copy, session.state))
+  session = applySessionResult(session, selectDecision(copy, session.state, 'opt_assess'))
+  session = applySessionResult(session, selectDecision(copy, session.state, 'opt_increase_o2'))
+  assert.equal(session.ehrValues.custom_record.setting, 'Known setting')
+  for (const invalid of [
+    { 'unknown.field': { value: '100%', source: 'device' } },
+    { 'custom_record.setting': { value: '', source: 'device' } },
+    { 'custom_record.setting': { value: '100%', source: '' } },
+  ]) {
+    copy.nodes[2].options[0].documentation_defaults = invalid
+    assert.throws(() => validateScenario(copy), /Invalid scenario/)
+  }
+})

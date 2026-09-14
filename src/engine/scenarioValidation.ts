@@ -124,6 +124,16 @@ export function validateScenario(data: unknown): asserts data is Scenario {
         text(option.label, `${path}.option.label`)
         member(option.target_hotspot, hotspotIds, `${path}.option.target_hotspot`)
         effects(option.effects, `${path}.option.effects`)
+        if (option.documentation_defaults !== undefined) {
+          object(option.documentation_defaults, `${path}.option.documentation_defaults`)
+          for (const [fieldPath, entry] of Object.entries(option.documentation_defaults)) {
+            const parts = fieldPath.split('.')
+            if (parts.length !== 2 || !forms.get(parts[0])?.includes(parts[1])) fail(`${path}.option.documentation_defaults`, `references unknown EHR field "${fieldPath}"`)
+            object(entry, `${path}.option.documentation_defaults.${fieldPath}`)
+            text(entry.value, `${path}.option.documentation_defaults.${fieldPath}.value`)
+            text(entry.source, `${path}.option.documentation_defaults.${fieldPath}.source`)
+          }
+        }
         target(option.next_node_id, `${path}.option.next_node_id`)
       }
       if (node.timeout !== undefined) {

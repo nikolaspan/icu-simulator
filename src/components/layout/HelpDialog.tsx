@@ -9,7 +9,7 @@ export default function HelpDialog({ onClose }: { onClose: () => void }) {
       <div className="modal-content">
         <p>Inspect the equipment, choose an available action, and document your work in the EHR.</p>
         <dl className="help-items">
-          <div><dt>Rotate and zoom</dt><dd>Drag inside the room to rotate. Use the mouse wheel or pinch to zoom. Keyboard camera controls are below the room.</dd></div>
+          <div><dt>Rotate and zoom</dt><dd>Hold the right mouse button and drag inside the room to rotate. Scroll or middle-drag to zoom. Left-click selects equipment; left-drag does not rotate. On touch screens, drag to rotate and pinch to zoom. Camera buttons and arrow keys also work.</dd></div>
           <div><dt>Identify equipment</dt><dd>Hover to highlight an object, then click to interact. You can also Tab to an equipment button and press Enter.</dd></div>
           <div><dt>Follow the objective</dt><dd>Available equipment is marked “Action available”. Timed decisions continue counting down while help or the EHR is open.</dd></div>
           <div><dt>Document and continue</dt><dd>Required fields are labelled. Save &amp; continue checks every required section and takes you to any missing entry. Drafts remain when you close the EHR.</dd></div>

@@ -1,13 +1,13 @@
 import type { VitalSigns } from '../../engine/types'
 
 interface VitalsPanelProps { vitals: VitalSigns; alarm?: boolean; title?: string }
-export default function VitalsPanel({ vitals, alarm = false, title = 'Live vitals' }: VitalsPanelProps) {
+export default function VitalsPanel({ vitals, alarm = vitals.spo2 < 90, title = 'Live vitals' }: VitalsPanelProps) {
   const items = [
-    { label: 'SpO₂', value: vitals.spo2, unit: '%', detail: alarm ? 'Alarm active' : 'Oxygen saturation' },
+    { label: 'SpO₂', value: vitals.spo2, unit: '%', detail: alarm ? 'Low oxygen · Alarm active' : 'Oxygen saturation' },
     { label: 'HR', value: vitals.hr, unit: 'bpm', detail: 'Heart rate' },
     { label: 'RR', value: vitals.rr, unit: '/min', detail: 'Respiratory rate' },
     { label: 'BP', value: vitals.bp, unit: 'mmHg', detail: 'Blood pressure' },
-    { label: 'Temperature', value: vitals.temp, unit: '°C', detail: 'Body temperature' },
+    { label: 'Temperature', value: vitals.temp.toFixed(1), unit: '°C', detail: 'Body temperature' },
   ]
   return (
     <section className="vitals-panel" aria-label={title}>

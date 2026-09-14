@@ -18,7 +18,10 @@ export default function App() {
   return (
     <main className="simulator">
       <a className="skip-link" href="#simulation-content">Skip to simulation</a>
-      <TopBar title={scenario.scenario_meta.title} state={state} onReset={simulation.restart} onHelp={() => simulation.setHelpOpen(true)} />
+      <TopBar title={scenario.scenario_meta.title} state={state} documentationRequired={node.type === 'gate'} onReset={simulation.restart} onHelp={() => simulation.setHelpOpen(true)} />
+      <div className="feedback-region" role="status" aria-live="polite" aria-atomic="true">
+        {notice && <div className={`toast ${notice.tone}`}><span>{notice.message}</span><button type="button" onClick={simulation.dismissNotice} aria-label="Dismiss feedback">×</button></div>}
+      </div>
       <div id="simulation-content" tabIndex={-1} className="simulation-content">
         {error ? <section className="loading-screen"><h2>Simulation paused</h2><p role="alert">{error}</p><button type="button" className="primary-action" onClick={simulation.restart}>Restart scenario</button></section>
           : state.completed ? <Debrief scenario={scenario} state={state} logs={logs} values={ehrValues} onRestart={simulation.restart} />
@@ -26,13 +29,10 @@ export default function App() {
             timeoutRemaining={simulation.timeoutRemaining} requiredCount={simulation.requiredFields.length} missingCount={simulation.missingFields.length}
             onInteract={simulation.interact} onContinue={simulation.advance} onDecision={simulation.decide} onCloseInteraction={simulation.closeInteraction} />}
       </div>
-      {ui.ehrOpen && !state.completed && <EHRPanel config={scenario.ehr_config} values={ehrValues} vitals={state.vitals} alarm={alarm}
+      {ui.ehrOpen && !state.completed && <EHRPanel config={scenario.ehr_config} values={ehrValues} autofill={session.ehrAutofill} vitals={state.vitals} alarm={alarm} initialVitals={scenario.initial_state.vitals} logs={logs}
         requiredFields={simulation.requiredFields} blockedMessage={node.type === 'gate' ? node.feedback_blocked : undefined}
         timeoutRemaining={simulation.timeoutRemaining} onFieldChange={simulation.changeField} onClose={simulation.closeEHR} onContinue={simulation.saveEHR} />}
       {ui.helpOpen && <HelpDialog onClose={() => simulation.setHelpOpen(false)} />}
-      <div className="feedback-region" role="status" aria-live="polite" aria-atomic="true">
-        {notice && <div className={`toast ${notice.tone}`}><span>{notice.message}</span><button type="button" onClick={simulation.dismissNotice} aria-label="Dismiss feedback">×</button></div>}
-      </div>
     </main>
   )
 }

@@ -14,7 +14,7 @@ export default function EHRNavigation({ config, activeForm, required, missing, o
         const total = required.filter(path => path.startsWith(`${id}.`)).length
         const remaining = missing.filter(path => path.startsWith(`${id}.`)).length
         return <button type="button" key={id} aria-current={activeForm === id ? 'page' : undefined} onClick={() => onSelect(id)}>
-          <span>{form.title}</span>{total > 0 && <small className={remaining ? 'required-status' : 'complete-status'}>{remaining ? `${remaining} required` : 'Complete'}</small>}
+          <span>{form.title}</span>{total > 0 ? <small className={remaining ? 'required-status' : 'complete-status'}>{remaining ? `${total - remaining}/${total} complete · ${remaining} required` : `✓ Complete · ${total}/${total}`}</small> : <small className="optional-status">Optional entries</small>}
         </button>
       })}
     </nav>
