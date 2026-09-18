@@ -1,75 +1,37 @@
-# React + TypeScript + Vite
+# ICU Clinical Simulator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An interactive ICU training simulator for clinical decision-making and electronic health record (EHR) documentation. It includes a 3D ICU room, rule-based scenarios, timed decisions, documentation gates, scoring, session logs, and a final debrief.
 
-Currently, two official plugins are available:
+This project was developed for the University of West Attica (UNIWA) by **Nikolas-Tryfwn Pnagiotidis**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Repository: [github.com/nikolaspan/icu-simulator](https://github.com/nikolaspan/icu-simulator)
 
-## React Compiler
+## Technology stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React and TypeScript
+- Three.js for the 3D ICU environment
+- Vite for development and production builds
+- JSON-based clinical scenarios
 
-## Expanding the ESLint configuration
+## First-time setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Install [Node.js](https://nodejs.org/) 20.19+ or 22.12+, then run:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+git clone https://github.com/nikolaspan/icu-simulator.git
+cd icu-simulator
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open the local address shown by Vite in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Other commands
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm run build    # Create a production build
+npm run preview  # Preview the production build
+npm run lint     # Check the source code
 ```
+
+Project documentation is available in the [`Documantation`](./Documantation/) folder.
