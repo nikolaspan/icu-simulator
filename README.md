@@ -2,7 +2,7 @@
 
 An interactive ICU training simulator for clinical decision-making and electronic health record (EHR) documentation. It includes a 3D ICU room, rule-based scenarios, timed decisions, documentation gates, scoring, session logs, and a final debrief.
 
-This project was developed for the University of West Attica (UNIWA) by **Nikolas-Tryfwn Pnagiotidis**.
+This project was developed for the University of West Attica (UNIWA) by **Nikolas-Tryfwn Panagiotidis**.
 
 Repository: [github.com/nikolaspan/icu-simulator](https://github.com/nikolaspan/icu-simulator)
 
