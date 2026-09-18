@@ -161,7 +161,7 @@
               "flags.assessment_complete": true
             },
 
-            "toast": "You observe cyanosis and rapid breathing."
+            "toast": "Patient assessment completed. You observe cyanosis and rapid breathing."
           },
 
           "next_node_id": "n3_intervention"
@@ -213,6 +213,13 @@
         {
           "id": "opt_increase_o2",
 
+          "documentation_defaults": {
+            "intervention_form.fiO2_setting": {
+              "value": "100%",
+              "source": "ventilator intervention"
+            }
+          },
+
           "label": "Increase FiO2 to 100%",
 
           "target_hotspot": "hs_ventilator",
@@ -229,7 +236,7 @@
 
             "score_delta": 20,
 
-            "toast": "The setting has been changed. SpO2 is improving."
+            "toast": "FiO₂ increased to 100%. SpO₂ improved to 94%."
           },
 
           "next_node_id": "n4_gate_documentation_1"
@@ -324,6 +331,13 @@
       "options": [
         {
           "id": "opt_call_doc",
+
+          "documentation_defaults": {
+            "communication_log.recipient": {
+              "value": "On-duty physician",
+              "source": "physician call"
+            }
+          },
 
           "label": "Call the physician",
 
