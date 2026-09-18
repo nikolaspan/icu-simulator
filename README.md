@@ -34,4 +34,4 @@ npm run preview  # Preview the production build
 npm run lint     # Check the source code
 ```
 
-Project documentation is available in the [`Documantation`](./Documantation/) folder.
+Project documentation is available in the root [`/`](./) folder.
