@@ -1,0 +1,288 @@
+{
+  "exported_at": "2026-09-16T16:28:56.816Z",
+  "scenario_id": "icu_scenario_hypoxia_v1",
+  "scenario_title": "ICU: Hypoxemia & Ventilator Management",
+  "final_score": 155,
+  "elapsed_seconds": 10,
+  "completed": true,
+  "decision_path": [
+    "n1_start",
+    "n2_initial_decision",
+    "opt_assess",
+    "n3_intervention",
+    "opt_increase_o2",
+    "n4_gate_documentation_1",
+    "n5_reassessment",
+    "n6_escalation_decision",
+    "opt_call_doc",
+    "n7_gate_documentation_2",
+    "n8_end_scenario"
+  ],
+  "flags": {
+    "assessment_complete": true,
+    "oxygen_adjusted": true,
+    "documentation_1_complete": true,
+    "escalation_complete": true,
+    "documentation_2_complete": true
+  },
+  "final_vitals": {
+    "hr": 100,
+    "spo2": 94,
+    "rr": 24,
+    "bp": "125/80",
+    "temp": 37
+  },
+  "logs": [
+    {
+      "id": "b0ae8bf2-8b66-45fa-a3ca-8e2e48601c1d",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:45.578Z",
+      "time_elapsed": 0,
+      "node_id": "n1_start",
+      "details": {
+        "node_id": "n1_start",
+        "score": 100
+      }
+    },
+    {
+      "id": "91c23980-ae3f-4116-a475-b31d928e4b21",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:48.334Z",
+      "time_elapsed": 2,
+      "node_id": "n2_initial_decision",
+      "details": {
+        "node_id": "n2_initial_decision",
+        "score": 100
+      }
+    },
+    {
+      "id": "ae742c45-cc73-4ec6-985e-4eb232304bee",
+      "event_type": "HOTSPOT_INTERACTION",
+      "timestamp": "2026-09-16T16:28:48.393Z",
+      "time_elapsed": 2,
+      "node_id": "n2_initial_decision",
+      "details": {
+        "hotspot": "hs_patient"
+      }
+    },
+    {
+      "id": "53ac4751-b878-4e30-861a-8977c67a6440",
+      "event_type": "OPTION_SELECTED",
+      "timestamp": "2026-09-16T16:28:49.876Z",
+      "time_elapsed": 4,
+      "node_id": "n2_initial_decision",
+      "details": {
+        "option_id": "opt_assess",
+        "option_label": "Perform immediate patient assessment",
+        "target_hotspot": "hs_patient",
+        "score": 100
+      }
+    },
+    {
+      "id": "5ae8d454-78b4-4d99-bd6d-1611efa25317",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:49.876Z",
+      "time_elapsed": 4,
+      "node_id": "n3_intervention",
+      "details": {
+        "node_id": "n3_intervention",
+        "score": 110
+      }
+    },
+    {
+      "id": "a8de7344-4693-4719-9d0b-803855b3a34f",
+      "event_type": "HOTSPOT_INTERACTION",
+      "timestamp": "2026-09-16T16:28:49.935Z",
+      "time_elapsed": 4,
+      "node_id": "n3_intervention",
+      "details": {
+        "hotspot": "hs_ventilator"
+      }
+    },
+    {
+      "id": "5d30f4a5-cfd5-4c38-b115-36ab0db33ae5",
+      "event_type": "OPTION_SELECTED",
+      "timestamp": "2026-09-16T16:28:50.460Z",
+      "time_elapsed": 4,
+      "node_id": "n3_intervention",
+      "details": {
+        "option_id": "opt_increase_o2",
+        "option_label": "Increase FiO2 to 100%",
+        "target_hotspot": "hs_ventilator",
+        "score": 110
+      }
+    },
+    {
+      "id": "0bfc36d5-6568-4716-b368-d17751fc1d48",
+      "event_type": "VITALS_CHANGE",
+      "timestamp": "2026-09-16T16:28:50.460Z",
+      "time_elapsed": 4,
+      "node_id": "n3_intervention",
+      "details": {
+        "changes": {
+          "hr": {
+            "from": 110,
+            "to": 100
+          },
+          "spo2": {
+            "from": 88,
+            "to": 94
+          }
+        }
+      }
+    },
+    {
+      "id": "186da22f-c6be-42a9-8649-24d04e92099d",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:50.460Z",
+      "time_elapsed": 4,
+      "node_id": "n4_gate_documentation_1",
+      "details": {
+        "node_id": "n4_gate_documentation_1",
+        "score": 130
+      }
+    },
+    {
+      "id": "84ba61ff-6c44-4b15-8f71-f8d6eab9b515",
+      "event_type": "HOTSPOT_INTERACTION",
+      "timestamp": "2026-09-16T16:28:51.027Z",
+      "time_elapsed": 5,
+      "node_id": "n4_gate_documentation_1",
+      "details": {
+        "hotspot": "hs_ehr"
+      }
+    },
+    {
+      "id": "a4bb2538-27b9-4abe-8ae3-99d7b4684e00",
+      "event_type": "EHR_SUBMIT",
+      "timestamp": "2026-09-16T16:28:52.691Z",
+      "time_elapsed": 7,
+      "node_id": "n4_gate_documentation_1",
+      "details": {
+        "gate_passed": false,
+        "forms": {
+          "intervention_form": {
+            "fiO2_setting": "100%"
+          }
+        }
+      }
+    },
+    {
+      "id": "d8eb4c8b-4d06-437c-bf40-8e6d7d42322a",
+      "event_type": "EHR_SUBMIT",
+      "timestamp": "2026-09-16T16:28:54.389Z",
+      "time_elapsed": 8,
+      "node_id": "n4_gate_documentation_1",
+      "details": {
+        "gate_passed": true,
+        "forms": {
+          "intervention_form": {
+            "fiO2_setting": "100%"
+          },
+          "assessment_form": {
+            "observation": "Cyanosis and rapid breathing observed."
+          }
+        }
+      }
+    },
+    {
+      "id": "c704a45d-9447-4522-9aff-35f144da0ee7",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:54.389Z",
+      "time_elapsed": 8,
+      "node_id": "n5_reassessment",
+      "details": {
+        "node_id": "n5_reassessment",
+        "score": 140
+      }
+    },
+    {
+      "id": "d1381a2f-681f-40f8-8a82-641552e87a21",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:54.450Z",
+      "time_elapsed": 8,
+      "node_id": "n6_escalation_decision",
+      "details": {
+        "node_id": "n6_escalation_decision",
+        "score": 140
+      }
+    },
+    {
+      "id": "12b84634-724a-440e-bd5a-2d3d5ff1bebc",
+      "event_type": "HOTSPOT_INTERACTION",
+      "timestamp": "2026-09-16T16:28:54.509Z",
+      "time_elapsed": 8,
+      "node_id": "n6_escalation_decision",
+      "details": {
+        "hotspot": "hs_call"
+      }
+    },
+    {
+      "id": "057bfcb5-ed14-4915-bc9f-1825ffc6df6d",
+      "event_type": "OPTION_SELECTED",
+      "timestamp": "2026-09-16T16:28:55.029Z",
+      "time_elapsed": 9,
+      "node_id": "n6_escalation_decision",
+      "details": {
+        "option_id": "opt_call_doc",
+        "option_label": "Call the physician",
+        "target_hotspot": "hs_call",
+        "score": 140
+      }
+    },
+    {
+      "id": "3c4422c0-3180-4c71-9102-e4d38a7201fe",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:55.029Z",
+      "time_elapsed": 9,
+      "node_id": "n7_gate_documentation_2",
+      "details": {
+        "node_id": "n7_gate_documentation_2",
+        "score": 150
+      }
+    },
+    {
+      "id": "7e9d3a46-45ba-4b8b-a513-e8c0cc1c6d53",
+      "event_type": "HOTSPOT_INTERACTION",
+      "timestamp": "2026-09-16T16:28:55.086Z",
+      "time_elapsed": 9,
+      "node_id": "n7_gate_documentation_2",
+      "details": {
+        "hotspot": "hs_ehr"
+      }
+    },
+    {
+      "id": "dd5d0f15-6652-4877-adb4-496ce0bb4f51",
+      "event_type": "EHR_SUBMIT",
+      "timestamp": "2026-09-16T16:28:55.815Z",
+      "time_elapsed": 10,
+      "node_id": "n7_gate_documentation_2",
+      "details": {
+        "gate_passed": true,
+        "forms": {
+          "intervention_form": {
+            "fiO2_setting": "100%"
+          },
+          "assessment_form": {
+            "observation": "Cyanosis and rapid breathing observed."
+          },
+          "communication_log": {
+            "recipient": "On-duty physician",
+            "outcome": "Physician contacted; patient review requested."
+          }
+        }
+      }
+    },
+    {
+      "id": "e4b4667f-f582-4f87-a3c7-efc134d23296",
+      "event_type": "NODE_ENTER",
+      "timestamp": "2026-09-16T16:28:55.815Z",
+      "time_elapsed": 10,
+      "node_id": "n8_end_scenario",
+      "details": {
+        "node_id": "n8_end_scenario",
+        "score": 155
+      }
+    }
+  ]
+}
